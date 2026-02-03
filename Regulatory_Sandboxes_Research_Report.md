@@ -15,13 +15,15 @@ Regulatory sandboxes have emerged as a critical policy tool for balancing innova
 
 | Metric | Finding | Source |
 |--------|---------|--------|
-| Capital raised increase | **+15%** post-sandbox entry | Cornelli et al. (2024) |
-| Probability of raising capital | **+50%** increase | BIS Working Paper 901 |
-| Survival rate of sandbox firms | **77-80%** still operating | FCA/BIS data |
-| Global sandbox market size (2024) | **$2.2 billion** | Business Research Insights |
-| Projected market size (2033) | **$11.01 billion** (CAGR 25.18%) | Business Research Insights |
-| Global fintech sandboxes | **94** launched globally (Jan 2023) | World Bank |
-| Countries with sandboxes | **57+** jurisdictions | World Bank |
+| Capital raised increase | **+15%** (~$700k over 2 years) | [Cornelli et al. (2024), *Review of Finance*](https://doi.org/10.1093/rof/rfad017) |
+| Probability of raising capital | **+50%** increase | [BIS Working Paper 901](https://www.bis.org/publ/work901.pdf) |
+| Survival rate (successful applicants) | **~80%** still operating | [ScaleUp Institute (2020)](https://www.scaleupinstitute.org.uk/programmes/fca-regulatory-sandbox-world-leading-programme-breaking-down-regulatory-barriers/) |
+| Survival rate (unsuccessful applicants) | **57%** still operating | [ScaleUp Institute (2020)](https://www.scaleupinstitute.org.uk/programmes/fca-regulatory-sandbox-world-leading-programme-breaking-down-regulatory-barriers/) |
+| Global fintech sandboxes | **73** in **57 countries** (2020) | [World Bank (2020)](https://documents1.worldbank.org/curated/en/912001605241080935/pdf/Global-Experiences-from-Regulatory-Sandboxes.pdf) |
+| Singapore MAS graduation rate | **15 of 19** firms (79%) | [MAS Parliamentary Reply (2025)](https://www.mas.gov.sg/news/parliamentary-replies/2025/written-reply-on-mas-regulatory-sandboxes) |
+| UK FCA early cohort funding | **£135 million** equity raised | [ScaleUp Institute](https://www.scaleupinstitute.org.uk/programmes/fca-regulatory-sandbox-world-leading-programme-breaking-down-regulatory-barriers/) |
+
+> **Note on Market Size Figures:** Commercial market research reports (e.g., Business Research Insights) cite a global fintech regulatory sandbox market of $2.2B (2024) growing to $11.01B by 2033. These figures could not be independently verified through peer-reviewed sources and should be treated with caution.
 
 ---
 
@@ -35,10 +37,9 @@ A regulatory sandbox is a controlled environment that allows businesses to test 
 
 - **2015**: UK FCA launches world's first regulatory sandbox
 - **2016-2017**: Singapore, Australia, Hong Kong, Malaysia follow
-- **2018-2019**: Rapid expansion—56% of all sandboxes created in this period
-- **2020**: ~20% of all sandboxes created in first half alone
-- **2023**: 94 fintech regulatory sandboxes globally
-- **2025-2026**: EU AI Act mandates member states establish AI sandboxes by August 2026
+- **2018-2019**: Rapid expansion—56% of all sandboxes created in this period ([World Bank, 2020](https://documents1.worldbank.org/curated/en/912001605241080935/pdf/Global-Experiences-from-Regulatory-Sandboxes.pdf))
+- **2020**: ~20% of all sandboxes created in first half alone ([World Bank, 2020](https://documents1.worldbank.org/curated/en/912001605241080935/pdf/Global-Experiences-from-Regulatory-Sandboxes.pdf))
+- **2025-2026**: EU AI Act mandates member states establish AI sandboxes by August 2026 ([EU AI Act, Article 57](https://artificialintelligenceact.eu/article/57/))
 
 ### 1.3 Geographic Distribution
 
@@ -51,7 +52,7 @@ A regulatory sandbox is a controlled environment that allows businesses to test 
 | Sub-Saharan Africa | 8 | Focus on financial inclusion |
 | South Asia | 6 | India leading |
 
-**Key Insight**: While advanced economies were first movers, emerging markets and developing economies (EMDEs) now account for approximately **70%** of all regulatory sandboxes globally (World Bank, 2020).
+**Key Insight**: While advanced economies were first movers, emerging markets and developing economies (EMDEs) now account for approximately **70%** of all regulatory sandboxes globally ([World Bank, 2020](https://documents1.worldbank.org/curated/en/912001605241080935/pdf/Global-Experiences-from-Regulatory-Sandboxes.pdf)).
 
 ---
 
@@ -63,7 +64,7 @@ A regulatory sandbox is a controlled environment that allows businesses to test 
 
 #### Empirical Evidence:
 
-**BIS/Oxford Study (Cornelli et al., 2024)**
+**[BIS/Oxford Study (Cornelli et al., 2024)](https://doi.org/10.1093/rof/rfad017)** | [Working Paper](https://www.bis.org/publ/work901.pdf)
 - Firms entering UK sandbox see **15% increase in capital raised** (~$700,000 over two years)
 - Probability of raising capital increases by **50%**
 - Significant positive effects on survival rates and patenting
@@ -72,20 +73,21 @@ A regulatory sandbox is a controlled environment that allows businesses to test 
   - Firms with foreign or first-time investors
   - CEOs without prior regulatory experience
 
-**Goo & Heo (2020) Nine-Country Study**
+**[Goo & Heo (2020) Nine-Country Study](https://www.mdpi.com/2199-8531/6/2/43)**
 - Countries studied: UK, Singapore, Hong Kong, Australia, India, Canada, Malaysia, Netherlands, Japan
 - Finding: Adoption of regulatory sandboxes had **"very positive influences"** on fintech venture investment growth
 - Methodology: Matched sandbox countries with non-sandbox countries based on WEF Global Competitiveness Index
 
-**UK FCA Statistics**
-- 700+ firms tested over six years (out of 1,500 applicants)
-- 80% of successfully tested firms still in operation
-- UK's global fintech funding share increased from <15% (2010-2014) to >20% (2015-2019)
+**UK FCA Statistics** ([ScaleUp Institute, 2020](https://www.scaleupinstitute.org.uk/programmes/fca-regulatory-sandbox-world-leading-programme-breaking-down-regulatory-barriers/))
+- ~700 firms tested over six years (out of ~1,500 applicants)
+- **80%** of successfully tested firms still in operation; **57%** of unsuccessful applicants still operating
+- Early cohorts raised **£135 million** in equity funding
 
-**Singapore MAS Statistics**
+**Singapore MAS Statistics** ([MAS Parliamentary Reply, 2025](https://www.mas.gov.sg/news/parliamentary-replies/2025/written-reply-on-mas-regulatory-sandboxes)) | ([MAS Sandbox Overview](https://www.mas.gov.sg/development/fintech/regulatory-sandbox))
 - 70+ applications received (2016-2022)
 - 40+ projects accepted for live testing
-- 15 of 19 accepted firms successfully graduated
+- **15 of 19** accepted firms successfully graduated (79%)
+- Median processing time: ~3 months
 - Notable graduates: PolicyPal, ADDX
 
 #### Sector Breakdown within Fintech:
@@ -321,7 +323,7 @@ Key gaps identified in literature:
 
 **Significance**: First rigorous empirical evaluation of sandbox effectiveness; widely cited; establishes the benchmark for future research.
 
-**URL**: https://academic.oup.com/rof/article-abstract/28/1/203/7140150
+**Links**: [Review of Finance (DOI)](https://doi.org/10.1093/rof/rfad017) | [BIS Working Paper 901](https://www.bis.org/publ/work901.pdf) | [SSRN](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3727816)
 
 ---
 
@@ -335,7 +337,7 @@ Key gaps identified in literature:
 
 **Significance**: Foundational critical perspective; essential reading for understanding policy debates; influenced subsequent sandbox designs.
 
-**URL**: https://www.gwlr.org/wp-content/uploads/2019/06/87-Geo.-Wash.-L.-Rev.-579.pdf
+**Links**: [George Washington Law Review (PDF)](https://www.gwlr.org/wp-content/uploads/2019/06/87-Geo.-Wash.-L.-Rev.-579.pdf)
 
 ---
 
@@ -349,7 +351,7 @@ Key gaps identified in literature:
 
 **Significance**: Highly influential conceptual framework; frequently cited in academic and policy discussions; establishes taxonomy of regulatory approaches.
 
-**URL**: https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3018534
+**Links**: [SSRN](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3018534) | [ResearchGate](https://www.researchgate.net/publication/319579261_Regulating_a_Revolution_From_Regulatory_Sandboxes_to_Smart_Regulation)
 
 ---
 
@@ -363,7 +365,7 @@ Key gaps identified in literature:
 
 **Significance**: Important counterargument to sandbox enthusiasm; influences regulatory design decisions; prompts clearer terminology.
 
-**URL**: https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3455872
+**Links**: [SSRN](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3455872) | [Washington University Open Scholarship](https://openscholarship.wustl.edu/law_journal_law_policy/vol61/iss1/10/)
 
 ---
 
@@ -379,7 +381,7 @@ Key gaps identified in literature:
 
 **Significance**: First cross-country comparative empirical study; supports positive investment effects; provides methodology for future research.
 
-**URL**: https://www.mdpi.com/2199-8531/6/2/43
+**Links**: [MDPI Journal of Open Innovation](https://www.mdpi.com/2199-8531/6/2/43)
 
 ---
 
@@ -393,7 +395,7 @@ Key gaps identified in literature:
 
 **Significance**: Unique data from participants; qualitative depth; explains mechanisms beyond quantitative outcomes.
 
-**URL**: https://pmc.ncbi.nlm.nih.gov/articles/PMC9324139/
+**Links**: [PMC/NIH](https://pmc.ncbi.nlm.nih.gov/articles/PMC9324139/) | [Wiley Online Library](https://onlinelibrary.wiley.com/doi/10.1111/rego.12407)
 
 ---
 
@@ -407,7 +409,7 @@ Key gaps identified in literature:
 
 **Significance**: Nuanced understanding of signaling dynamics; practical implications for startup strategy.
 
-**URL**: https://onlinelibrary.wiley.com/doi/10.1111/isj.70004
+**Links**: [Wiley Information Systems Journal](https://onlinelibrary.wiley.com/doi/10.1111/isj.70004)
 
 ---
 
@@ -423,7 +425,7 @@ Key gaps identified in literature:
 
 **Significance**: Most recent comprehensive review; synthesizes contemporary literature; identifies future research directions.
 
-**URL**: https://www.tandfonline.com/doi/full/10.1080/23311975.2025.2510555
+**Links**: [Taylor & Francis / Cogent Business & Management](https://www.tandfonline.com/doi/full/10.1080/23311975.2025.2510555)
 
 ---
 
@@ -437,7 +439,7 @@ Key gaps identified in literature:
 
 **Significance**: Comprehensive coverage of academic literature; quantifies research trends.
 
-**URL**: https://oulurepo.oulu.fi/bitstream/handle/10024/50797/nbnfioulu-202406194763.pdf
+**Links**: [University of Oulu Repository (PDF)](https://oulurepo.oulu.fi/bitstream/handle/10024/50797/nbnfioulu-202406194763.pdf)
 
 ---
 
@@ -451,7 +453,7 @@ Key gaps identified in literature:
 
 **Significance**: First comprehensive review of healthcare sandboxes; identifies potential for HTA methodology development.
 
-**URL**: https://pmc.ncbi.nlm.nih.gov/articles/PMC8545721/
+**Links**: [PMC/NIH](https://pmc.ncbi.nlm.nih.gov/articles/PMC8545721/) | [Springer](https://link.springer.com/article/10.1007/s40258-021-00665-1)
 
 ---
 
@@ -467,7 +469,7 @@ Key gaps identified in literature:
 
 **Significance**: Most comprehensive global data; authoritative policy guidance; essential reference for policymakers.
 
-**URL**: https://documents1.worldbank.org/curated/en/912001605241080935/pdf/Global-Experiences-from-Regulatory-Sandboxes.pdf
+**Links**: [World Bank (PDF)](https://documents1.worldbank.org/curated/en/912001605241080935/pdf/Global-Experiences-from-Regulatory-Sandboxes.pdf) | [World Bank Key Data Brief](https://www.worldbank.org/en/topic/fintech/brief/key-data-from-regulatory-sandboxes-across-the-globe)
 
 ---
 
@@ -481,7 +483,7 @@ Key gaps identified in literature:
 
 **Significance**: Essential practical guide for implementation.
 
-**URL**: https://documents1.worldbank.org/curated/en/126281625136122935/pdf/How-to-Build-a-Regulatory-Sandbox-A-Practical-Guide-for-Policy-Makers.pdf
+**Links**: [World Bank (PDF)](https://documents1.worldbank.org/curated/en/126281625136122935/pdf/How-to-Build-a-Regulatory-Sandbox-A-Practical-Guide-for-Policy-Makers.pdf)
 
 ---
 
@@ -495,7 +497,7 @@ Key gaps identified in literature:
 
 **Significance**: Influential in shaping EU approach to fintech regulation.
 
-**URL**: https://www.europarl.europa.eu/RegData/etudes/STUD/2020/652752/IPOL_STU(2020)652752_EN.pdf
+**Links**: [European Parliament (PDF)](https://www.europarl.europa.eu/RegData/etudes/STUD/2020/652752/IPOL_STU(2020)652752_EN.pdf)
 
 ---
 
@@ -511,6 +513,8 @@ Key gaps identified in literature:
 
 **Significance**: Early academic treatment of AI sandboxes; influential in EU AI Act discussions.
 
+**Links**: [SAGE Journals](https://journals.sagepub.com/doi/10.1177/1023263X20984992)
+
 ---
 
 #### 15. Ahern, D. M. (2021)
@@ -522,6 +526,8 @@ Key gaps identified in literature:
 **Key Findings**: Identifies three types of regulatory challenges for fintech; analyzes how sandboxes address these challenges; evaluates EU response options.
 
 **Significance**: Important for understanding EU regulatory approach.
+
+**Links**: [Springer](https://link.springer.com/article/10.1007/s40804-021-00217-z)
 
 ---
 
@@ -535,7 +541,7 @@ Key gaps identified in literature:
 
 **Significance**: Early comparative study; identifies insurtech gaps.
 
-**URL**: https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3275929
+**Links**: [SSRN](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3275929)
 
 ---
 
@@ -551,7 +557,7 @@ Key gaps identified in literature:
 
 **Significance**: Important critical perspective; introduces "riskwashing" concept; challenges dominant positive narrative.
 
-**URL**: https://www.tandfonline.com/doi/full/10.1080/13563467.2021.1910645
+**Links**: [Taylor & Francis / New Political Economy](https://www.tandfonline.com/doi/full/10.1080/13563467.2021.1910645)
 
 ---
 
@@ -564,6 +570,8 @@ Key gaps identified in literature:
 **Key Findings**: Identifies key design features for effective balance; analyzes trade-offs involved in sandbox participation.
 
 **Significance**: Early influential analysis of design considerations.
+
+**Links**: [SSRN](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3090844)
 
 ---
 
@@ -579,7 +587,7 @@ Key gaps identified in literature:
 
 **Significance**: Important evidence from China; large-scale empirical study; identifies mechanisms.
 
-**URL**: https://www.tandfonline.com/doi/full/10.1080/00036846.2025.2495886
+**Links**: [Taylor & Francis / Applied Economics](https://www.tandfonline.com/doi/full/10.1080/00036846.2025.2495886)
 
 ---
 
@@ -593,7 +601,7 @@ Key gaps identified in literature:
 
 **Significance**: Recent comparative evidence; includes emerging market case.
 
-**URL**: https://www.mdpi.com/2674-1032/4/2/26
+**Links**: [MDPI Laws](https://www.mdpi.com/2674-1032/4/2/26)
 
 ---
 
@@ -603,27 +611,28 @@ Key gaps identified in literature:
 
 | Study | Geography | Capital Impact | Probability Impact | Other Outcomes |
 |-------|-----------|---------------|-------------------|----------------|
-| Cornelli et al. (2024) | UK | +15% (+$700k) | +50% | +Survival, +Patents |
-| Goo & Heo (2020) | 9 countries | Positive | N/A | N/A |
-| Zhang et al. (2025) | China | N/A | N/A | +Financial efficiency |
-| Kindermann et al. (2024) | UK | Positive | N/A | Signaling effects |
+| [Cornelli et al. (2024)](https://doi.org/10.1093/rof/rfad017) | UK | +15% (+$700k) | +50% | +Survival, +Patents |
+| [Goo & Heo (2020)](https://www.mdpi.com/2199-8531/6/2/43) | 9 countries | Positive | N/A | N/A |
+| [Zhang et al. (2025)](https://www.tandfonline.com/doi/full/10.1080/00036846.2025.2495886) | China | N/A | N/A | +Financial efficiency |
+| [Kindermann et al. (2024)](https://onlinelibrary.wiley.com/doi/10.1111/isj.70004) | UK | Positive | N/A | Signaling effects |
 
 ### Sandbox Statistics by Country
 
-| Country | Launch Year | Applications | Accepted | Graduated | Success Rate |
-|---------|-------------|--------------|----------|-----------|--------------|
-| UK (FCA) | 2015 | 1,500+ | 700+ | ~560+ | 80% operational |
-| Singapore (MAS) | 2016 | 70+ | 40+ | 15/19 | 79% graduated |
-| Australia (ASIC) | 2017 | N/A | N/A | N/A | N/A |
+| Country | Launch Year | Applications | Accepted | Graduated | Success Rate | Source |
+|---------|-------------|--------------|----------|-----------|--------------|--------|
+| UK (FCA) | 2015 | ~1,500 | ~700 | ~560 | 80% operational | [ScaleUp Institute](https://www.scaleupinstitute.org.uk/programmes/fca-regulatory-sandbox-world-leading-programme-breaking-down-regulatory-barriers/) |
+| Singapore (MAS) | 2016 | 70+ | 40+ | 15/19 | 79% graduated | [MAS](https://www.mas.gov.sg/news/parliamentary-replies/2025/written-reply-on-mas-regulatory-sandboxes) |
+| Australia (ASIC) | 2017 | N/A | N/A | N/A | N/A | — |
 
 ### Global Market Projections
 
-| Year | Market Size | Growth |
+> ⚠️ **Verification Note:** The market size figures below are from commercial market research reports and could not be independently verified through peer-reviewed academic sources. Treat with appropriate caution.
+
+| Year | Market Size | Source |
 |------|-------------|--------|
-| 2024 | $2.2B | - |
-| 2025 | $2.75B | +25% |
-| 2028 | $5.5B | +100% (vs 2024) |
-| 2033 | $11.01B | +400% (vs 2024) |
+| 2024 | $2.2B | [Business Research Insights](https://www.businessresearchinsights.com/market-reports/fintech-regulatory-sandbox-market-117821) (unverified) |
+| 2033 | $11.01B | [Business Research Insights](https://www.businessresearchinsights.com/market-reports/fintech-regulatory-sandbox-market-117821) (unverified) |
+| CAGR | 25.18% | Commercial estimate |
 
 ---
 
