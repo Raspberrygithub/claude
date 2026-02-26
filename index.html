@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Heritage Bell Runner - Side Scrolling Platformer</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #1a1a2e;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    font-family: 'Georgia', serif;
+    overflow: hidden;
+  }
+  #header {
+    color: #c8a96e;
+    text-align: center;
+    margin-bottom: 10px;
+  }
+  #header h1 {
+    font-size: 28px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  #header p {
+    font-size: 14px;
+    color: #8a7a5a;
+    margin-top: 4px;
+  }
+  #gameContainer {
+    position: relative;
+    border: 3px solid #c8a96e;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  canvas {
+    display: block;
+    background: #0f3460;
+  }
+  #startScreen, #gameOverScreen {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(26, 26, 46, 0.92);
+    z-index: 10;
+  }
+  #gameOverScreen { display: none; }
+  .screen-title {
+    font-size: 36px;
+    color: #c8a96e;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+  }
+  .screen-sub {
+    color: #e0d5c0;
+    font-size: 16px;
+    margin-bottom: 6px;
+  }
+  .screen-instructions {
+    color: #8a8a9a;
+    font-size: 13px;
+    margin-bottom: 20px;
+    text-align: center;
+    line-height: 1.6;
+  }
+  .btn {
+    padding: 14px 40px;
+    font-size: 18px;
+    background: #c8a96e;
+    color: #1a1a2e;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'Georgia', serif;
+    font-weight: bold;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: background 0.2s;
+  }
+  .btn:hover { background: #dfc48a; }
+  #scoreDisplay {
+    position: absolute;
+    top: 12px; right: 18px;
+    color: #c8a96e;
+    font-size: 22px;
+    font-weight: bold;
+    z-index: 5;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+  }
+  #finalScore {
+    font-size: 48px;
+    color: #c8a96e;
+    margin: 10px 0 20px 0;
+  }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <h1>Heritage Bell Runner</h1>
+  <p>Dodge the obstacles. Preserve your dignity.</p>
+</div>
+
+<div id="gameContainer">
+  <canvas id="gameCanvas"></canvas>
+  <div id="scoreDisplay">Score: 0</div>
+
+  <div id="startScreen">
+    <div class="screen-title">Heritage Bell Runner</div>
+    <div class="screen-sub">A Side-Scrolling Platformer</div>
+    <div class="screen-instructions">
+      Press <b>SPACE</b> or <b>UP</b> to jump<br>
+      Press <b>DOWN</b> to duck<br>
+      Dodge the obstacles to survive!<br>
+      <i>(or tap/click on mobile)</i>
+    </div>
+    <button class="btn" id="startBtn">Start Game</button>
+  </div>
+
+  <div id="gameOverScreen">
+    <div class="screen-title">Game Over</div>
+    <div class="screen-sub">Final Score</div>
+    <div id="finalScore">0</div>
+    <button class="btn" id="restartBtn">Play Again</button>
+  </div>
+</div>
+
+<script>
+// ========== CANVAS SETUP ==========
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const W = 900, H = 500;
+canvas.width = W;
+canvas.height = H;
+
+// ========== GAME STATE ==========
+let gameRunning = false;
+let score = 0;
+let speed = 5;
+let frameCount = 0;
+let obstacles = [];
+let particles = [];
+let groundTiles = [];
+let bgStars = [];
+let shakeTimer = 0;
+let lastObstacleFrame = 0;
+
+// ========== GROUND ==========
+const GROUND_Y = H - 70;
+
+// ========== PLAYER (Heritage Bell) ==========
+const player = {
+  x: 100,
+  y: GROUND_Y,
+  w: 56,
+  h: 70,
+  vy: 0,
+  jumping: false,
+  ducking: false,
+  duckH: 40,
+  grounded: true,
+  doubleJump: false
+};
+const GRAVITY = 0.6;
+const JUMP_FORCE = -13;
+
+// ========== DRAW HERITAGE BELL ==========
+function drawBell(x, y, w, h, ducking) {
+  const actualH = ducking ? player.duckH : h;
+  const actualY = ducking ? GROUND_Y - player.duckH : y;
+
+  ctx.save();
+  ctx.translate(x + w / 2, actualY + actualH);
+
+  // Bell shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.2)';
+  ctx.beginPath();
+  ctx.ellipse(0, 4, w * 0.5, 6, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Bell body
+  const bellW = w * 0.9;
+  const bellH = actualH * 0.85;
+
+  // Main bell shape gradient
+  const grad = ctx.createLinearGradient(-bellW/2, -bellH, bellW/2, 0);
+  grad.addColorStop(0, '#d4a843');
+  grad.addColorStop(0.3, '#c8a96e');
+  grad.addColorStop(0.6, '#b8923a');
+  grad.addColorStop(1, '#a67c28');
+  ctx.fillStyle = grad;
+
+  ctx.beginPath();
+  ctx.moveTo(-bellW * 0.15, -bellH);
+  ctx.quadraticCurveTo(-bellW * 0.12, -bellH * 0.7, -bellW * 0.2, -bellH * 0.5);
+  ctx.quadraticCurveTo(-bellW * 0.45, -bellH * 0.1, -bellW * 0.5, 0);
+  ctx.lineTo(bellW * 0.5, 0);
+  ctx.quadraticCurveTo(bellW * 0.45, -bellH * 0.1, bellW * 0.2, -bellH * 0.5);
+  ctx.quadraticCurveTo(bellW * 0.12, -bellH * 0.7, bellW * 0.15, -bellH);
+  ctx.closePath();
+  ctx.fill();
+
+  // Bell highlight
+  ctx.fillStyle = 'rgba(255,230,160,0.25)';
+  ctx.beginPath();
+  ctx.moveTo(-bellW * 0.05, -bellH * 0.95);
+  ctx.quadraticCurveTo(-bellW * 0.04, -bellH * 0.6, -bellW * 0.12, -bellH * 0.3);
+  ctx.quadraticCurveTo(-bellW * 0.08, -bellH * 0.6, -bellW * 0.02, -bellH * 0.9);
+  ctx.closePath();
+  ctx.fill();
+
+  // Bell rim
+  ctx.fillStyle = '#8a6914';
+  ctx.fillRect(-bellW * 0.52, -4, bellW * 1.04, 4);
+
+  // Clapper
+  ctx.fillStyle = '#5a4510';
+  ctx.beginPath();
+  ctx.arc(0, -6, 5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Top knob
+  ctx.fillStyle = '#c8a96e';
+  ctx.beginPath();
+  ctx.arc(0, -bellH - 4, 6, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#a67c28';
+  ctx.beginPath();
+  ctx.arc(0, -bellH - 4, 4, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Heritage text on bell
+  if (!ducking) {
+    ctx.fillStyle = '#5a4510';
+    ctx.font = 'bold 8px Georgia';
+    ctx.textAlign = 'center';
+    ctx.fillText('HERITAGE', 0, -bellH * 0.4);
+  }
+
+  ctx.restore();
+}
+
+// ========== OBSTACLE TYPES ==========
+const OBSTACLE_TYPES = [
+  {
+    name: 'Crunchy Mom',
+    caption: 'Crunchy/Granola Mom',
+    color: '#7cb342',
+    type: 'ground',
+    w: 50, h: 70,
+    draw: function(x, y, w, h) {
+      // Person shape with granola vibes
+      ctx.fillStyle = '#7cb342';
+      // Body - flowy dress
+      ctx.beginPath();
+      ctx.moveTo(x + w * 0.3, y + h * 0.3);
+      ctx.lineTo(x + w * 0.1, y + h);
+      ctx.lineTo(x + w * 0.9, y + h);
+      ctx.lineTo(x + w * 0.7, y + h * 0.3);
+      ctx.closePath();
+      ctx.fill();
+      // Head
+      ctx.fillStyle = '#d4a06a';
+      ctx.beginPath();
+      ctx.arc(x + w / 2, y + h * 0.2, w * 0.22, 0, Math.PI * 2);
+      ctx.fill();
+      // Wild hair
+      ctx.fillStyle = '#8d6e3f';
+      ctx.beginPath();
+      ctx.arc(x + w / 2, y + h * 0.15, w * 0.3, Math.PI, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(x + w * 0.3, y + h * 0.22, 5, 12, -0.3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(x + w * 0.7, y + h * 0.22, 5, 12, 0.3, 0, Math.PI * 2);
+      ctx.fill();
+      // Tote bag
+      ctx.strokeStyle = '#5d4037';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x + w * 0.6, y + h * 0.45, 14, 18);
+      // Kombucha bottle in hand
+      ctx.fillStyle = '#a5d6a7';
+      ctx.fillRect(x + w * 0.15, y + h * 0.4, 6, 16);
+      ctx.fillStyle = '#66bb6a';
+      ctx.fillRect(x + w * 0.15, y + h * 0.36, 6, 6);
+    }
+  },
+  {
+    name: 'Intern Moment',
+    caption: 'Embarrassing Intern Moment',
+    color: '#ef5350',
+    type: 'ground',
+    w: 55, h: 65,
+    draw: function(x, y, w, h) {
+      // Frazzled intern with spilled coffee
+      // Body
+      ctx.fillStyle = '#1565c0';
+      ctx.fillRect(x + w * 0.25, y + h * 0.35, w * 0.5, h * 0.55);
+      // Head
+      ctx.fillStyle = '#e8b89a';
+      ctx.beginPath();
+      ctx.arc(x + w / 2, y + h * 0.22, w * 0.2, 0, Math.PI * 2);
+      ctx.fill();
+      // Messy hair
+      ctx.fillStyle = '#4a3728';
+      ctx.beginPath();
+      ctx.arc(x + w / 2, y + h * 0.17, w * 0.22, Math.PI, Math.PI * 2.2);
+      ctx.fill();
+      // Embarrassed red face
+      ctx.fillStyle = 'rgba(239,83,80,0.3)';
+      ctx.beginPath();
+      ctx.arc(x + w / 2, y + h * 0.25, w * 0.15, 0, Math.PI * 2);
+      ctx.fill();
+      // Spilled coffee cup
+      ctx.fillStyle = '#795548';
+      ctx.save();
+      ctx.translate(x + w * 0.7, y + h * 0.5);
+      ctx.rotate(0.8);
+      ctx.fillRect(-5, -8, 10, 14);
+      ctx.restore();
+      // Coffee splash
+      ctx.fillStyle = '#5d4037';
+      ctx.beginPath();
+      ctx.arc(x + w * 0.75, y + h * 0.65, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(x + w * 0.82, y + h * 0.72, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(x + w * 0.68, y + h * 0.75, 3, 0, Math.PI * 2);
+      ctx.fill();
+      // Scattered papers
+      ctx.fillStyle = '#fff';
+      ctx.save();
+      ctx.translate(x + w * 0.2, y + h * 0.7);
+      ctx.rotate(-0.4);
+      ctx.fillRect(0, 0, 12, 15);
+      ctx.restore();
+      ctx.save();
+      ctx.translate(x + w * 0.1, y + h * 0.8);
+      ctx.rotate(0.3);
+      ctx.fillRect(0, 0, 12, 15);
+      ctx.restore();
+    }
+  },
+  {
+    name: 'Peppa Pig',
+    caption: 'Peppa Pig',
+    color: '#f48fb1',
+    type: 'ground',
+    w: 55, h: 55,
+    draw: function(x, y, w, h) {
+      // Peppa Pig - cartoon pig
+      // Body
+      ctx.fillStyle = '#f48fb1';
+      ctx.beginPath();
+      ctx.ellipse(x + w / 2, y + h * 0.6, w * 0.3, h * 0.25, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Head
+      ctx.fillStyle = '#f48fb1';
+      ctx.beginPath();
+      ctx.arc(x + w * 0.45, y + h * 0.3, w * 0.25, 0, Math.PI * 2);
+      ctx.fill();
+      // Snout
+      ctx.fillStyle = '#ec407a';
+      ctx.beginPath();
+      ctx.ellipse(x + w * 0.65, y + h * 0.3, w * 0.12, h * 0.08, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Nostrils
+      ctx.fillStyle = '#c2185b';
+      ctx.beginPath();
+      ctx.arc(x + w * 0.63, y + h * 0.29, 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(x + w * 0.67, y + h * 0.29, 2, 0, Math.PI * 2);
+      ctx.fill();
+      // Eye
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(x + w * 0.42, y + h * 0.22, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.arc(x + w * 0.42, y + h * 0.22, 2, 0, Math.PI * 2);
+      ctx.fill();
+      // Legs
+      ctx.strokeStyle = '#f48fb1';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(x + w * 0.35, y + h * 0.8);
+      ctx.lineTo(x + w * 0.35, y + h);
+      ctx.moveTo(x + w * 0.45, y + h * 0.8);
+      ctx.lineTo(x + w * 0.45, y + h);
+      ctx.moveTo(x + w * 0.55, y + h * 0.8);
+      ctx.lineTo(x + w * 0.55, y + h);
+      ctx.moveTo(x + w * 0.65, y + h * 0.8);
+      ctx.lineTo(x + w * 0.65, y + h);
+      ctx.stroke();
+      // Shoes
+      ctx.fillStyle = '#000';
+      [0.35, 0.45, 0.55, 0.65].forEach(px => {
+        ctx.beginPath();
+        ctx.arc(x + w * px, y + h, 3, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      // Red dress
+      ctx.fillStyle = '#e53935';
+      ctx.beginPath();
+      ctx.moveTo(x + w * 0.3, y + h * 0.48);
+      ctx.lineTo(x + w * 0.25, y + h * 0.7);
+      ctx.lineTo(x + w * 0.7, y + h * 0.7);
+      ctx.lineTo(x + w * 0.65, y + h * 0.48);
+      ctx.closePath();
+      ctx.fill();
+    }
+  },
+  {
+    name: 'Bluey',
+    caption: 'Bluey',
+    color: '#42a5f5',
+    type: 'ground',
+    w: 55, h: 58,
+    draw: function(x, y, w, h) {
+      // Bluey - blue heeler dog
+      // Body
+      ctx.fillStyle = '#42a5f5';
+      ctx.beginPath();
+      ctx.ellipse(x + w / 2, y + h * 0.6, w * 0.3, h * 0.22, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Head
+      ctx.fillStyle = '#42a5f5';
+      ctx.beginPath();
+      ctx.arc(x + w * 0.4, y + h * 0.28, w * 0.22, 0, Math.PI * 2);
+      ctx.fill();
+      // Ears (pointy)
+      ctx.fillStyle = '#1e88e5';
+      ctx.beginPath();
+      ctx.moveTo(x + w * 0.25, y + h * 0.2);
+      ctx.lineTo(x + w * 0.2, y);
+      ctx.lineTo(x + w * 0.35, y + h * 0.15);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(x + w * 0.45, y + h * 0.15);
+      ctx.lineTo(x + w * 0.5, y);
+      ctx.lineTo(x + w * 0.55, y + h * 0.18);
+      ctx.closePath();
+      ctx.fill();
+      // Snout
+      ctx.fillStyle = '#90caf9';
+      ctx.beginPath();
+      ctx.ellipse(x + w * 0.55, y + h * 0.32, w * 0.12, h * 0.06, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Nose
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.arc(x + w * 0.62, y + h * 0.3, 3, 0, Math.PI * 2);
+      ctx.fill();
+      // Eye
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(x + w * 0.4, y + h * 0.23, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.arc(x + w * 0.4, y + h * 0.23, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+      // Legs
+      ctx.fillStyle = '#42a5f5';
+      ctx.fillRect(x + w * 0.3, y + h * 0.75, 6, h * 0.25);
+      ctx.fillRect(x + w * 0.55, y + h * 0.75, 6, h * 0.25);
+      // Heeler spots
+      ctx.fillStyle = '#1565c0';
+      ctx.beginPath();
+      ctx.arc(x + w * 0.45, y + h * 0.55, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(x + w * 0.55, y + h * 0.5, 3, 0, Math.PI * 2);
+      ctx.fill();
+      // Tail
+      ctx.strokeStyle = '#42a5f5';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(x + w * 0.75, y + h * 0.55);
+      ctx.quadraticCurveTo(x + w * 0.9, y + h * 0.3, x + w * 0.85, y + h * 0.2);
+      ctx.stroke();
+    }
+  },
+  {
+    name: 'West Wing',
+    caption: 'The West Wing',
+    color: '#1a237e',
+    type: 'ground',
+    w: 60, h: 72,
+    draw: function(x, y, w, h) {
+      // White House / West Wing facade
+      ctx.fillStyle = '#eceff1';
+      ctx.fillRect(x + w * 0.1, y + h * 0.25, w * 0.8, h * 0.75);
+      // Roof / pediment
+      ctx.fillStyle = '#cfd8dc';
+      ctx.beginPath();
+      ctx.moveTo(x + w * 0.05, y + h * 0.25);
+      ctx.lineTo(x + w / 2, y);
+      ctx.lineTo(x + w * 0.95, y + h * 0.25);
+      ctx.closePath();
+      ctx.fill();
+      // Columns
+      ctx.fillStyle = '#b0bec5';
+      for (let i = 0; i < 4; i++) {
+        const cx = x + w * 0.18 + i * w * 0.2;
+        ctx.fillRect(cx, y + h * 0.25, w * 0.06, h * 0.65);
+      }
+      // Door
+      ctx.fillStyle = '#37474f';
+      ctx.fillRect(x + w * 0.38, y + h * 0.55, w * 0.24, h * 0.45);
+      // Door arc
+      ctx.beginPath();
+      ctx.arc(x + w * 0.5, y + h * 0.55, w * 0.12, Math.PI, 0);
+      ctx.fill();
+      // Windows
+      ctx.fillStyle = '#90caf9';
+      ctx.fillRect(x + w * 0.15, y + h * 0.35, w * 0.12, h * 0.15);
+      ctx.fillRect(x + w * 0.73, y + h * 0.35, w * 0.12, h * 0.15);
+      // Flag on top
+      ctx.fillStyle = '#d32f2f';
+      ctx.fillRect(x + w / 2 - 1, y - 10, 2, 14);
+      ctx.fillRect(x + w / 2 + 1, y - 10, 10, 7);
+    }
+  },
+  {
+    name: 'Love Story',
+    caption: 'Love Story (TV Drama)',
+    color: '#e91e63',
+    type: 'air',
+    w: 55, h: 45,
+    draw: function(x, y, w, h) {
+      // A floating TV with a heart / romance scene
+      // TV body
+      ctx.fillStyle = '#333';
+      ctx.strokeStyle = '#666';
+      ctx.lineWidth = 2;
+      roundRect(ctx, x, y + h * 0.1, w, h * 0.75, 4);
+      ctx.fill();
+      ctx.stroke();
+      // Screen
+      ctx.fillStyle = '#ffcdd2';
+      ctx.fillRect(x + 4, y + h * 0.15, w - 8, h * 0.6);
+      // Heart on screen
+      ctx.fillStyle = '#e91e63';
+      drawHeart(x + w / 2, y + h * 0.35, 14);
+      // Two silhouettes
+      ctx.fillStyle = '#c62828';
+      ctx.beginPath();
+      ctx.arc(x + w * 0.3, y + h * 0.5, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillRect(x + w * 0.27, y + h * 0.55, 6, 12);
+      ctx.beginPath();
+      ctx.arc(x + w * 0.7, y + h * 0.5, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillRect(x + w * 0.67, y + h * 0.55, 6, 12);
+      // Antenna
+      ctx.strokeStyle = '#666';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x + w * 0.4, y + h * 0.1);
+      ctx.lineTo(x + w * 0.3, y);
+      ctx.moveTo(x + w * 0.6, y + h * 0.1);
+      ctx.lineTo(x + w * 0.7, y);
+      ctx.stroke();
+    }
+  },
+  {
+    name: 'Pelican Brief',
+    caption: 'The Pelican Brief',
+    color: '#ff9800',
+    type: 'ground',
+    w: 55, h: 65,
+    draw: function(x, y, w, h) {
+      // A pelican holding a legal brief
+      // Body
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.ellipse(x + w * 0.45, y + h * 0.55, w * 0.25, h * 0.25, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Head
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(x + w * 0.5, y + h * 0.2, w * 0.18, 0, Math.PI * 2);
+      ctx.fill();
+      // Long beak
+      ctx.fillStyle = '#ff9800';
+      ctx.beginPath();
+      ctx.moveTo(x + w * 0.62, y + h * 0.15);
+      ctx.lineTo(x + w * 0.95, y + h * 0.2);
+      ctx.lineTo(x + w * 0.62, y + h * 0.32);
+      ctx.closePath();
+      ctx.fill();
+      // Pouch
+      ctx.fillStyle = '#ffcc80';
+      ctx.beginPath();
+      ctx.moveTo(x + w * 0.62, y + h * 0.2);
+      ctx.quadraticCurveTo(x + w * 0.75, y + h * 0.35, x + w * 0.62, y + h * 0.32);
+      ctx.fill();
+      // Eye
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.arc(x + w * 0.48, y + h * 0.16, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+      // Wing
+      ctx.fillStyle = '#e0e0e0';
+      ctx.beginPath();
+      ctx.ellipse(x + w * 0.35, y + h * 0.5, w * 0.18, h * 0.2, -0.2, 0, Math.PI * 2);
+      ctx.fill();
+      // Legs
+      ctx.strokeStyle = '#ff9800';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x + w * 0.35, y + h * 0.75);
+      ctx.lineTo(x + w * 0.3, y + h);
+      ctx.moveTo(x + w * 0.5, y + h * 0.75);
+      ctx.lineTo(x + w * 0.55, y + h);
+      ctx.stroke();
+      // Legal brief (document)
+      ctx.fillStyle = '#fffde7';
+      ctx.save();
+      ctx.translate(x + w * 0.7, y + h * 0.5);
+      ctx.rotate(0.15);
+      ctx.fillRect(0, 0, 14, 20);
+      ctx.strokeStyle = '#999';
+      ctx.lineWidth = 0.5;
+      ctx.strokeRect(0, 0, 14, 20);
+      // Text lines
+      ctx.fillStyle = '#666';
+      for (let i = 0; i < 4; i++) {
+        ctx.fillRect(2, 4 + i * 4, 10, 1);
+      }
+      ctx.restore();
+    }
+  },
+  {
+    name: 'Stairs Fall',
+    caption: 'Falling Down Stairs',
+    color: '#78909c',
+    type: 'ground',
+    w: 65, h: 70,
+    draw: function(x, y, w, h) {
+      // Staircase with person tumbling
+      // Steps
+      ctx.fillStyle = '#78909c';
+      const steps = 5;
+      for (let i = 0; i < steps; i++) {
+        const sx = x + (i * w / steps);
+        const sy = y + h - ((steps - i) * h / steps);
+        const sw = w / steps + 2;
+        const sh = (steps - i) * h / steps;
+        ctx.fillRect(sx, sy, sw, sh);
+        // Step edge highlight
+        ctx.fillStyle = '#90a4ae';
+        ctx.fillRect(sx, sy, sw, 3);
+        ctx.fillStyle = '#78909c';
+      }
+      // Tumbling person (stick figure at angle)
+      ctx.save();
+      ctx.translate(x + w * 0.5, y + h * 0.4);
+      ctx.rotate(Math.sin(frameCount * 0.15) * 0.5 + 0.5);
+      // Head
+      ctx.fillStyle = '#e8b89a';
+      ctx.beginPath();
+      ctx.arc(0, -15, 7, 0, Math.PI * 2);
+      ctx.fill();
+      // Body
+      ctx.strokeStyle = '#1565c0';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(0, -8);
+      ctx.lineTo(0, 10);
+      ctx.stroke();
+      // Arms flailing
+      ctx.beginPath();
+      ctx.moveTo(-10, -2);
+      ctx.lineTo(0, 0);
+      ctx.lineTo(12, -5);
+      ctx.stroke();
+      // Legs
+      ctx.beginPath();
+      ctx.moveTo(-8, 18);
+      ctx.lineTo(0, 10);
+      ctx.lineTo(10, 16);
+      ctx.stroke();
+      // Distress lines
+      ctx.strokeStyle = '#ff5722';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 3; i++) {
+        const angle = (i * Math.PI * 2) / 3 + frameCount * 0.1;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(angle) * 14, Math.sin(angle) * 14 - 5);
+        ctx.lineTo(Math.cos(angle) * 20, Math.sin(angle) * 20 - 5);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+];
+
+// ========== HELPERS ==========
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function drawHeart(cx, cy, size) {
+  ctx.beginPath();
+  ctx.moveTo(cx, cy + size * 0.3);
+  ctx.bezierCurveTo(cx - size * 0.5, cy - size * 0.3, cx - size, cy + size * 0.1, cx, cy + size * 0.7);
+  ctx.bezierCurveTo(cx + size, cy + size * 0.1, cx + size * 0.5, cy - size * 0.3, cx, cy + size * 0.3);
+  ctx.fill();
+}
+
+// ========== BACKGROUND ==========
+function initBackground() {
+  bgStars = [];
+  for (let i = 0; i < 60; i++) {
+    bgStars.push({
+      x: Math.random() * W,
+      y: Math.random() * (GROUND_Y - 50),
+      size: Math.random() * 2 + 0.5,
+      twinkle: Math.random() * Math.PI * 2
+    });
+  }
+  groundTiles = [];
+  for (let i = 0; i < Math.ceil(W / 20) + 2; i++) {
+    groundTiles.push(i * 20);
+  }
+}
+
+function drawBackground() {
+  // Sky gradient
+  const skyGrad = ctx.createLinearGradient(0, 0, 0, GROUND_Y);
+  skyGrad.addColorStop(0, '#0a1628');
+  skyGrad.addColorStop(0.5, '#0f3460');
+  skyGrad.addColorStop(1, '#16213e');
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0, 0, W, GROUND_Y);
+
+  // DC skyline silhouette
+  ctx.fillStyle = '#0a1020';
+  // Washington Monument
+  ctx.beginPath();
+  ctx.moveTo(350 - (frameCount * 0.3 % (W + 200)) + W, GROUND_Y);
+  ctx.lineTo(355 - (frameCount * 0.3 % (W + 200)) + W, GROUND_Y - 120);
+  ctx.lineTo(360 - (frameCount * 0.3 % (W + 200)) + W, GROUND_Y);
+  ctx.fill();
+  // Capitol dome silhouette
+  const capX = 600 - (frameCount * 0.2 % (W + 300)) + W;
+  ctx.beginPath();
+  ctx.moveTo(capX - 40, GROUND_Y);
+  ctx.lineTo(capX - 40, GROUND_Y - 40);
+  ctx.lineTo(capX - 20, GROUND_Y - 40);
+  ctx.quadraticCurveTo(capX, GROUND_Y - 80, capX + 20, GROUND_Y - 40);
+  ctx.lineTo(capX + 40, GROUND_Y - 40);
+  ctx.lineTo(capX + 40, GROUND_Y);
+  ctx.fill();
+
+  // General building silhouettes
+  ctx.fillStyle = '#0d1525';
+  for (let i = 0; i < 8; i++) {
+    const bx = (i * 140 - (frameCount * 0.5) % (140 * 8) + 140 * 8) % (140 * 8) - 100;
+    const bh = 30 + Math.sin(i * 2.5) * 20;
+    ctx.fillRect(bx, GROUND_Y - bh, 80, bh);
+  }
+
+  // Stars
+  bgStars.forEach(s => {
+    const alpha = 0.4 + Math.sin(s.twinkle + frameCount * 0.03) * 0.3;
+    ctx.fillStyle = `rgba(255, 255, 220, ${alpha})`;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Ground
+  const groundGrad = ctx.createLinearGradient(0, GROUND_Y, 0, H);
+  groundGrad.addColorStop(0, '#2d5016');
+  groundGrad.addColorStop(0.3, '#1b3a0a');
+  groundGrad.addColorStop(1, '#0f2405');
+  ctx.fillStyle = groundGrad;
+  ctx.fillRect(0, GROUND_Y, W, H - GROUND_Y);
+
+  // Ground line
+  ctx.strokeStyle = '#4a7a25';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, GROUND_Y);
+  ctx.lineTo(W, GROUND_Y);
+  ctx.stroke();
+
+  // Scrolling ground detail
+  ctx.fillStyle = '#3a6a18';
+  for (let i = 0; i < W / 30 + 1; i++) {
+    const gx = (i * 30 - (frameCount * speed) % 30 + 30) % (W + 30) - 15;
+    ctx.beginPath();
+    ctx.moveTo(gx, GROUND_Y + 8);
+    ctx.lineTo(gx + 4, GROUND_Y);
+    ctx.lineTo(gx + 8, GROUND_Y + 8);
+    ctx.fill();
+  }
+}
+
+// ========== PARTICLES ==========
+function spawnParticles(x, y, color, count) {
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      x, y,
+      vx: (Math.random() - 0.5) * 6,
+      vy: (Math.random() - 0.8) * 6,
+      life: 30 + Math.random() * 20,
+      maxLife: 50,
+      color,
+      size: Math.random() * 4 + 2
+    });
+  }
+}
+
+function updateParticles() {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.15;
+    p.life--;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+}
+
+function drawParticles() {
+  particles.forEach(p => {
+    const alpha = p.life / p.maxLife;
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * alpha, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+}
+
+// ========== OBSTACLES ==========
+function spawnObstacle() {
+  const minGap = Math.max(80, 140 - score / 20);
+  if (frameCount - lastObstacleFrame < minGap / speed * 3) return;
+
+  const type = OBSTACLE_TYPES[Math.floor(Math.random() * OBSTACLE_TYPES.length)];
+  const obs = {
+    x: W + 20,
+    w: type.w,
+    h: type.h,
+    type: type,
+    passed: false
+  };
+
+  if (type.type === 'air') {
+    obs.y = GROUND_Y - type.h - 60 - Math.random() * 40;
+  } else {
+    obs.y = GROUND_Y - type.h;
+  }
+
+  obstacles.push(obs);
+  lastObstacleFrame = frameCount;
+}
+
+function updateObstacles() {
+  for (let i = obstacles.length - 1; i >= 0; i--) {
+    obstacles[i].x -= speed;
+    if (!obstacles[i].passed && obstacles[i].x + obstacles[i].w < player.x) {
+      obstacles[i].passed = true;
+      score += 10;
+      document.getElementById('scoreDisplay').textContent = 'Score: ' + score;
+    }
+    if (obstacles[i].x + obstacles[i].w < -50) {
+      obstacles.splice(i, 1);
+    }
+  }
+}
+
+function drawObstacles() {
+  obstacles.forEach(obs => {
+    // Draw the obstacle
+    obs.type.draw(obs.x, obs.y, obs.w, obs.h);
+
+    // Caption label
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    const capText = obs.type.caption;
+    ctx.font = 'bold 10px Georgia';
+    const textW = ctx.measureText(capText).width;
+    roundRect(ctx, obs.x + obs.w / 2 - textW / 2 - 5, obs.y - 18, textW + 10, 16, 3);
+    ctx.fill();
+
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 10px Georgia';
+    ctx.textAlign = 'center';
+    ctx.fillText(capText, obs.x + obs.w / 2, obs.y - 6);
+    ctx.textAlign = 'left';
+
+    // Colored indicator dot
+    ctx.fillStyle = obs.type.color;
+    ctx.beginPath();
+    ctx.arc(obs.x + obs.w / 2 - textW / 2 - 1, obs.y - 10, 3, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+// ========== COLLISION ==========
+function checkCollision() {
+  const px = player.x;
+  const ph = player.ducking ? player.duckH : player.h;
+  const py = player.ducking ? GROUND_Y - player.duckH : player.y;
+  const pw = player.w;
+
+  const shrink = 8; // hitbox forgiveness
+
+  for (const obs of obstacles) {
+    if (
+      px + shrink < obs.x + obs.w - shrink &&
+      px + pw - shrink > obs.x + shrink &&
+      py + shrink < obs.y + obs.h - shrink &&
+      py + ph - shrink > obs.y + shrink
+    ) {
+      return obs;
+    }
+  }
+  return null;
+}
+
+// ========== PLAYER UPDATE ==========
+function updatePlayer() {
+  if (!player.grounded) {
+    player.vy += GRAVITY;
+    player.y += player.vy;
+  }
+
+  if (player.y >= GROUND_Y - player.h) {
+    player.y = GROUND_Y - player.h;
+    player.vy = 0;
+    player.grounded = true;
+    player.jumping = false;
+    player.doubleJump = false;
+  }
+
+  if (player.ducking && !player.grounded) {
+    player.ducking = false;
+  }
+}
+
+function playerJump() {
+  if (player.grounded) {
+    player.vy = JUMP_FORCE;
+    player.grounded = false;
+    player.jumping = true;
+    spawnParticles(player.x + player.w / 2, GROUND_Y, '#c8a96e', 5);
+  } else if (!player.doubleJump) {
+    player.vy = JUMP_FORCE * 0.85;
+    player.doubleJump = true;
+    spawnParticles(player.x + player.w / 2, player.y + player.h, '#c8a96e', 3);
+  }
+}
+
+function playerDuck(ducking) {
+  if (player.grounded) {
+    player.ducking = ducking;
+  }
+}
+
+// ========== GAME LOOP ==========
+function gameLoop() {
+  if (!gameRunning) return;
+
+  frameCount++;
+
+  // Increase difficulty
+  speed = 5 + Math.floor(score / 100) * 0.5;
+  if (speed > 12) speed = 12;
+
+  // Screen shake
+  let shakeX = 0, shakeY = 0;
+  if (shakeTimer > 0) {
+    shakeX = (Math.random() - 0.5) * shakeTimer;
+    shakeY = (Math.random() - 0.5) * shakeTimer;
+    shakeTimer -= 0.5;
+  }
+
+  ctx.save();
+  ctx.translate(shakeX, shakeY);
+
+  // Clear
+  ctx.clearRect(-10, -10, W + 20, H + 20);
+
+  // Draw
+  drawBackground();
+  updatePlayer();
+  spawnObstacle();
+  updateObstacles();
+  drawObstacles();
+  updateParticles();
+  drawParticles();
+
+  // Draw player
+  const py = player.grounded ? GROUND_Y - player.h : player.y;
+  drawBell(player.x, py, player.w, player.h, player.ducking);
+
+  // Collision
+  const hit = checkCollision();
+  if (hit) {
+    gameRunning = false;
+    shakeTimer = 15;
+    spawnParticles(player.x + player.w / 2, py + player.h / 2, '#c8a96e', 20);
+    spawnParticles(player.x + player.w / 2, py + player.h / 2, hit.type.color, 15);
+
+    // Draw final frame with shake
+    for (let i = 0; i < 10; i++) {
+      updateParticles();
+    }
+
+    document.getElementById('finalScore').textContent = score;
+    document.getElementById('gameOverScreen').style.display = 'flex';
+    ctx.restore();
+    return;
+  }
+
+  ctx.restore();
+  requestAnimationFrame(gameLoop);
+}
+
+// ========== CONTROLS ==========
+const keys = {};
+
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' || e.code === 'ArrowUp') {
+    e.preventDefault();
+    if (gameRunning) playerJump();
+  }
+  if (e.code === 'ArrowDown') {
+    e.preventDefault();
+    if (gameRunning) playerDuck(true);
+  }
+});
+
+document.addEventListener('keyup', e => {
+  if (e.code === 'ArrowDown') {
+    playerDuck(false);
+  }
+});
+
+// Touch / click support
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (gameRunning) {
+    const touch = e.touches[0];
+    const rect = canvas.getBoundingClientRect();
+    const ty = (touch.clientY - rect.top) / (rect.height);
+    if (ty > 0.7) {
+      playerDuck(true);
+    } else {
+      playerJump();
+    }
+  }
+});
+
+canvas.addEventListener('touchend', e => {
+  playerDuck(false);
+});
+
+canvas.addEventListener('click', e => {
+  if (gameRunning) playerJump();
+});
+
+// ========== START / RESTART ==========
+function startGame() {
+  score = 0;
+  speed = 5;
+  frameCount = 0;
+  obstacles = [];
+  particles = [];
+  lastObstacleFrame = 0;
+  player.y = GROUND_Y - player.h;
+  player.vy = 0;
+  player.grounded = true;
+  player.jumping = false;
+  player.ducking = false;
+  player.doubleJump = false;
+  document.getElementById('scoreDisplay').textContent = 'Score: 0';
+  document.getElementById('startScreen').style.display = 'none';
+  document.getElementById('gameOverScreen').style.display = 'none';
+  initBackground();
+  gameRunning = true;
+  gameLoop();
+}
+
+document.getElementById('startBtn').addEventListener('click', startGame);
+document.getElementById('restartBtn').addEventListener('click', startGame);
+
+// ========== INITIAL DRAW ==========
+initBackground();
+drawBackground();
+drawBell(player.x, GROUND_Y - player.h, player.w, player.h, false);
+</script>
+
+</body>
+</html>
