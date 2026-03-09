@@ -154,14 +154,43 @@ def weighted_corr(x, y, w):
 
 r_weighted = weighted_corr(x, y, weights)
 
-# OLS regression
-slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
+# OLS regression (unweighted, kept for reference)
+slope_ols, intercept_ols, r_value_ols, p_value_ols, std_err_ols = stats.linregress(x, y)
+
+# Weighted Least Squares (WLS) regression, weighted by employment
+import statsmodels.api as sm
+X_sm = sm.add_constant(x)
+wls_model = sm.WLS(y, X_sm, weights=weights)
+wls_results = wls_model.fit()
+intercept_wls = wls_results.params[0]
+slope_wls = wls_results.params[1]
+p_wls_slope = wls_results.pvalues[1]
+r2_wls = wls_results.rsquared
+se_wls = wls_results.bse[1]
+t_wls = wls_results.tvalues[1]
+
+# Weighted Pearson p-value via permutation test (employment-weighted)
+np.random.seed(42)
+n_perm = 10000
+r_weighted_obs = weighted_corr(x, y, weights)
+count_ge = 0
+for _ in range(n_perm):
+    y_perm = np.random.permutation(y)
+    r_perm = weighted_corr(x, y_perm, weights)
+    if abs(r_perm) >= abs(r_weighted_obs):
+        count_ge += 1
+p_weighted_perm = count_ge / n_perm
+
+# Use WLS as primary results
+slope = slope_wls
+intercept = intercept_wls
 
 print(f"\n--- Correlation Results ---")
-print(f"Pearson r = {r_unweighted:.4f} (p = {p_unweighted:.4f})")
+print(f"Unweighted Pearson r = {r_unweighted:.4f} (p = {p_unweighted:.4f})")
 print(f"Spearman rho = {rho_unweighted:.4f} (p = {p_spearman:.4f})")
-print(f"Employment-weighted r = {r_weighted:.4f}")
-print(f"OLS: y = {slope:.4f}x + {intercept:.4f} (R² = {r_value**2:.4f})")
+print(f"Employment-weighted r = {r_weighted:.4f} (permutation p = {p_weighted_perm:.4f})")
+print(f"OLS: y = {slope_ols:.4f}x + {intercept_ols:.4f} (R² = {r_value_ols**2:.4f})")
+print(f"WLS: y = {slope_wls:.4f}x + {intercept_wls:.4f} (R² = {r2_wls:.4f}, p = {p_wls_slope:.4f})")
 
 # ============================================================
 # 5. Create scatter plot
@@ -189,7 +218,7 @@ for conf_level in ['L', 'M', 'H']:
 x_line = np.linspace(0, 1, 100)
 y_line = slope * x_line + intercept
 ax.plot(x_line, y_line, 'r-', linewidth=2, alpha=0.8,
-        label=f'OLS fit (r={r_unweighted:.3f}, p={p_unweighted:.3f})')
+        label=f'WLS fit (weighted r={r_weighted:.3f}, p={p_weighted_perm:.3f})')
 
 # Label notable occupations
 labels_to_show = [
@@ -237,9 +266,10 @@ ax.set_xlim(-0.05, 1.0)
 ax.set_ylim(-0.5, 0.7)
 
 # Add correlation annotation box
-textstr = (f'Pearson r = {r_unweighted:.3f} (p = {p_unweighted:.3f})\n'
+textstr = (f'Employment-weighted r = {r_weighted:.3f} (perm. p = {p_weighted_perm:.3f})\n'
+           f'WLS slope p = {p_wls_slope:.3f}\n'
+           f'Unweighted Pearson r = {r_unweighted:.3f} (p = {p_unweighted:.3f})\n'
            f'Spearman ρ = {rho_unweighted:.3f} (p = {p_spearman:.3f})\n'
-           f'Emp.-weighted r = {r_weighted:.3f}\n'
            f'n = {len(data_rows)} occupations')
 props = dict(boxstyle='round', facecolor='wheat', alpha=0.8)
 ax.text(0.02, 0.98, textstr, transform=ax.transAxes, fontsize=10,
@@ -363,16 +393,17 @@ for lim in limitations:
 doc.add_heading('Results', level=2)
 
 doc.add_paragraph(
-    f'The analysis reveals a weak positive but statistically non-significant correlation between AI '
-    f'exposure and Democratic political leaning across the 47 matched occupations. The Pearson '
-    f'correlation coefficient is r = {r_unweighted:.3f} (p = {p_unweighted:.3f}), well above the '
-    f'conventional p < 0.05 threshold for statistical significance. The Spearman rank correlation '
-    f'is ρ = {rho_unweighted:.3f} (p = {p_spearman:.3f}), also non-significant. '
-    f'When weighted by employment, the correlation increases slightly to r = {r_weighted:.3f}, '
-    f'suggesting that larger occupations may exhibit a somewhat stronger pattern. However, with '
-    f'only 47 observations and substantial measurement uncertainty in the political data, these '
-    f'results should be interpreted cautiously. When restricted to the 8 high-confidence occupations '
-    f'only, the correlation drops to r = 0.100 (p = 0.814), essentially disappearing.'
+    f'When weighted by employment size -- so that large occupations like retail salespersons (3.7M) '
+    f'and registered nurses (3.0M) carry proportionally more influence than smaller ones -- the '
+    f'employment-weighted Pearson correlation is r = {r_weighted:.3f} with a permutation-test '
+    f'p-value of {p_weighted_perm:.3f} (10,000 permutations). The weighted least squares (WLS) '
+    f'regression slope is {slope_wls:.3f} (p = {p_wls_slope:.3f}), with R² = {r2_wls:.3f}. '
+    f'These results indicate a weak positive but statistically non-significant relationship between '
+    f'AI exposure and Democratic leaning, even after accounting for occupation size. For reference, '
+    f'the unweighted Pearson r = {r_unweighted:.3f} (p = {p_unweighted:.3f}) and Spearman '
+    f'ρ = {rho_unweighted:.3f} (p = {p_spearman:.3f}) are also non-significant. When restricted '
+    f'to the 8 high-confidence occupations only, the correlation drops to r ≈ 0.10 (p ≈ 0.81), '
+    f'essentially disappearing.'
 )
 
 # Add figure
@@ -409,16 +440,20 @@ for cl in clusters:
 
 # OLS table
 doc.add_heading('Regression Results', level=3)
-table = doc.add_table(rows=5, cols=2)
+table = doc.add_table(rows=9, cols=2)
 table.style = 'Light Grid Accent 1'
 cells = table.rows[0].cells
 cells[0].text = 'Statistic'
 cells[1].text = 'Value'
 stats_data = [
-    ('Pearson r', f'{r_unweighted:.4f}'),
-    ('p-value (two-tailed)', f'{p_unweighted:.4f}'),
-    ('Spearman ρ', f'{rho_unweighted:.4f}'),
     ('Employment-weighted r', f'{r_weighted:.4f}'),
+    ('Weighted r permutation p', f'{p_weighted_perm:.4f}'),
+    ('WLS slope', f'{slope_wls:.4f}'),
+    ('WLS slope p-value', f'{p_wls_slope:.4f}'),
+    ('WLS R²', f'{r2_wls:.4f}'),
+    ('Unweighted Pearson r', f'{r_unweighted:.4f}'),
+    ('Unweighted p-value', f'{p_unweighted:.4f}'),
+    ('Spearman ρ', f'{rho_unweighted:.4f}'),
 ]
 for i, (stat, val) in enumerate(stats_data):
     cells = table.rows[i+1].cells
@@ -430,10 +465,14 @@ doc.add_paragraph()
 # Discussion
 doc.add_heading('Discussion', level=2)
 doc.add_paragraph(
-    'The weak and non-significant correlation (r = 0.174, p = 0.243) suggests that, among the largest '
-    'U.S. occupations, AI exposure does not strongly predict political affiliation. This null-ish result '
-    'is itself informative: despite intuitions that AI might disproportionately affect workers of one '
-    'political persuasion, the reality across major occupations is more heterogeneous.'
+    f'Even after weighting by occupation size -- which gives greater influence to the millions of '
+    f'retail salespersons, nurses, and home health aides than to the hundreds of thousands of lawyers '
+    f'or police officers -- the correlation remains weak and non-significant (weighted r = {r_weighted:.3f}, '
+    f'permutation p = {p_weighted_perm:.3f}; WLS slope p = {p_wls_slope:.3f}). This suggests that, '
+    f'among the largest U.S. occupations, AI exposure does not strongly predict political affiliation '
+    f'regardless of how observations are weighted. This null-ish result is itself informative: despite '
+    f'intuitions that AI might disproportionately affect workers of one political persuasion, the '
+    f'reality across major occupations is more heterogeneous.'
 )
 doc.add_paragraph(
     'Several factors help explain the lack of a strong relationship. Occupations most exposed to AI '
@@ -471,17 +510,20 @@ doc.add_paragraph(
 doc.add_heading('Conclusion', level=2)
 doc.add_paragraph(
     f'This exploratory analysis finds a weak positive but statistically non-significant correlation '
-    f'(r = {r_unweighted:.3f}, p = {p_unweighted:.3f}) between occupational AI exposure and '
-    f'Democratic political leaning across the 50 largest U.S. occupations. While there is a '
-    f'directional tendency for higher-AI-exposure occupations to lean somewhat more Democratic, '
-    f'the relationship is not strong enough to reach statistical significance, and it essentially '
-    f'vanishes (r = 0.10) when restricted to high-confidence data points. The scatter plot reveals '
-    f'substantial heterogeneity: occupations at similar AI exposure levels can lean in opposite '
-    f'political directions, suggesting that workforce demographics, occupational culture, unionization, '
-    f'and education level are far more powerful predictors of political affiliation than AI exposure. '
-    f'Future research should employ individual-level data from voter registration records (e.g., the '
-    f'Chinoy 2024 "VRscores" dataset) merged with O*NET task data, along with multivariate controls, '
-    f'to better isolate any relationship between AI exposure and political orientation.'
+    f'between occupational AI exposure and Democratic political leaning across the 50 largest U.S. '
+    f'occupations. The employment-weighted correlation is r = {r_weighted:.3f} (permutation '
+    f'p = {p_weighted_perm:.3f}), and the WLS regression slope has p = {p_wls_slope:.3f}. '
+    f'The unweighted Pearson r = {r_unweighted:.3f} (p = {p_unweighted:.3f}) tells the same story. '
+    f'While there is a directional tendency for higher-AI-exposure occupations to lean somewhat more '
+    f'Democratic, the relationship is not strong enough to reach statistical significance at any '
+    f'conventional threshold, and it essentially vanishes (r ≈ 0.10) when restricted to high-confidence '
+    f'data points. The scatter plot reveals substantial heterogeneity: occupations at similar AI exposure '
+    f'levels can lean in opposite political directions, suggesting that workforce demographics, '
+    f'occupational culture, unionization, and education level are far more powerful predictors of '
+    f'political affiliation than AI exposure. Future research should employ individual-level data from '
+    f'voter registration records (e.g., the Chinoy 2024 "VRscores" dataset) merged with O*NET task '
+    f'data, along with multivariate controls, to better isolate any relationship between AI exposure '
+    f'and political orientation.'
 )
 
 # Data Sources
