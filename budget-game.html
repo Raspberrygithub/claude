@@ -1,0 +1,1121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Power of the Purse — Congressional Budget Memory Game</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0f1119;--surface:#1a1d2e;--surface2:#252840;--accent:#6c63ff;
+  --accent2:#ff6b6b;--accent3:#4ecdc4;--accent4:#ffe66d;--text:#e8e8f0;
+  --text2:#9898b0;--success:#4ecdc4;--fail:#ff6b6b;--gold:#ffe66d;
+  --radius:12px;
+}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+button{cursor:pointer;font-family:inherit;border:none;outline:none}
+.app{max-width:900px;margin:0 auto;padding:16px}
+
+/* Header */
+.header{text-align:center;padding:24px 0 16px;position:relative}
+.header h1{font-size:1.6rem;background:linear-gradient(135deg,var(--accent),var(--accent3));-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-0.5px}
+.header .subtitle{color:var(--text2);font-size:.85rem;margin-top:4px}
+.streak-bar{display:flex;justify-content:center;gap:16px;margin-top:12px;font-size:.8rem;color:var(--text2)}
+.streak-bar span{display:flex;align-items:center;gap:4px}
+.streak-bar .num{color:var(--gold);font-weight:700;font-size:1rem}
+
+/* Nav */
+.nav{display:flex;gap:8px;margin:16px 0;overflow-x:auto;padding-bottom:4px}
+.nav button{padding:8px 16px;border-radius:20px;background:var(--surface);color:var(--text2);font-size:.8rem;white-space:nowrap;transition:.2s}
+.nav button:hover,.nav button.active{background:var(--accent);color:#fff}
+
+/* Cards grid for units */
+.units-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-top:12px}
+.unit-card{background:var(--surface);border-radius:var(--radius);padding:20px;cursor:pointer;transition:.25s;border:2px solid transparent;position:relative;overflow:hidden}
+.unit-card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.unit-card .unit-num{font-size:.7rem;color:var(--accent);text-transform:uppercase;letter-spacing:1px;font-weight:700}
+.unit-card h3{margin:6px 0 8px;font-size:1.05rem}
+.unit-card p{font-size:.8rem;color:var(--text2);line-height:1.4}
+.unit-card .progress-bar{height:4px;background:var(--surface2);border-radius:2px;margin-top:12px;overflow:hidden}
+.unit-card .progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent3));border-radius:2px;transition:.4s}
+.unit-card .mastery{position:absolute;top:12px;right:12px;font-size:.75rem;color:var(--text2)}
+
+/* Game screen */
+.game-screen{display:none}
+.game-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.game-header h2{font-size:1.2rem}
+.back-btn{background:var(--surface);color:var(--text2);padding:8px 16px;border-radius:8px;font-size:.8rem;transition:.2s}
+.back-btn:hover{background:var(--surface2)}
+
+/* Mode selector */
+.mode-selector{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.mode-btn{padding:10px 18px;border-radius:10px;background:var(--surface);color:var(--text2);font-size:.8rem;transition:.2s;display:flex;align-items:center;gap:6px}
+.mode-btn:hover,.mode-btn.active{background:var(--accent);color:#fff}
+.mode-btn .icon{font-size:1.1rem}
+
+/* Question area */
+.question-area{background:var(--surface);border-radius:var(--radius);padding:24px;min-height:300px;position:relative}
+.q-progress{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;font-size:.8rem;color:var(--text2)}
+.q-counter{display:flex;gap:4px}
+.q-dot{width:8px;height:8px;border-radius:50%;background:var(--surface2);transition:.3s}
+.q-dot.done{background:var(--success)}
+.q-dot.wrong{background:var(--fail)}
+.q-dot.current{background:var(--accent);box-shadow:0 0 8px var(--accent)}
+
+.question-text{font-size:1.1rem;line-height:1.6;margin-bottom:20px;font-weight:500}
+.question-context{font-size:.8rem;color:var(--text2);margin-bottom:12px;font-style:italic}
+
+/* Multiple choice */
+.choices{display:flex;flex-direction:column;gap:10px}
+.choice-btn{text-align:left;padding:14px 18px;border-radius:10px;background:var(--surface2);color:var(--text);font-size:.9rem;transition:.2s;border:2px solid transparent;line-height:1.4}
+.choice-btn:hover:not(.locked){border-color:var(--accent);background:#2a2d50}
+.choice-btn.correct{border-color:var(--success);background:rgba(78,205,196,.12)}
+.choice-btn.incorrect{border-color:var(--fail);background:rgba(255,107,107,.1)}
+.choice-btn.locked{cursor:default;opacity:.7}
+.choice-btn.correct.locked{opacity:1}
+
+/* Flashcard */
+.flashcard-container{perspective:1000px;min-height:220px;cursor:pointer}
+.flashcard{width:100%;min-height:220px;position:relative;transform-style:preserve-3d;transition:transform .6s;display:flex}
+.flashcard.flipped{transform:rotateY(180deg)}
+.flash-front,.flash-back{position:absolute;width:100%;min-height:220px;backface-visibility:hidden;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:24px;border-radius:var(--radius);text-align:center}
+.flash-front{background:linear-gradient(135deg,#252840,#2a2d55);font-size:1.1rem;line-height:1.6}
+.flash-back{background:linear-gradient(135deg,#1a3a2e,#1a2e3a);transform:rotateY(180deg);font-size:1rem;line-height:1.6;color:var(--accent3)}
+.flash-hint{font-size:.75rem;color:var(--text2);margin-top:12px}
+.flash-btns{display:flex;gap:10px;margin-top:16px;justify-content:center}
+.flash-btns button{padding:10px 24px;border-radius:8px;font-size:.85rem;font-weight:600}
+.btn-knew{background:var(--success);color:#000}
+.btn-didnt{background:var(--fail);color:#fff}
+.btn-kinda{background:var(--gold);color:#000}
+
+/* Fill in blank */
+.blank-input{width:100%;padding:14px;border-radius:10px;background:var(--surface2);border:2px solid var(--surface2);color:var(--text);font-size:1rem;transition:.2s;margin-bottom:12px}
+.blank-input:focus{border-color:var(--accent);outline:none}
+.submit-btn{padding:12px 28px;border-radius:10px;background:var(--accent);color:#fff;font-size:.9rem;font-weight:600;transition:.2s}
+.submit-btn:hover{opacity:.9}
+
+/* Timeline */
+.timeline-items{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+.timeline-item{padding:12px 16px;border-radius:10px;background:var(--surface2);color:var(--text);font-size:.85rem;cursor:grab;transition:.2s;border:2px solid transparent;user-select:none;display:flex;align-items:center;gap:10px}
+.timeline-item:hover{border-color:var(--accent)}
+.timeline-item .drag-handle{color:var(--text2);font-size:1rem}
+.timeline-item.dragging{opacity:.5;border-color:var(--accent)}
+.timeline-item.correct-pos{border-color:var(--success);background:rgba(78,205,196,.08)}
+.timeline-item.wrong-pos{border-color:var(--fail);background:rgba(255,107,107,.06)}
+
+/* Matching */
+.match-container{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.match-col{display:flex;flex-direction:column;gap:8px}
+.match-col-header{font-size:.75rem;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;text-align:center}
+.match-item{padding:12px;border-radius:10px;background:var(--surface2);font-size:.8rem;cursor:pointer;transition:.2s;border:2px solid transparent;text-align:center;line-height:1.3}
+.match-item:hover{border-color:var(--accent)}
+.match-item.selected{border-color:var(--accent);background:#2a2d55}
+.match-item.matched{border-color:var(--success);background:rgba(78,205,196,.1);cursor:default}
+.match-item.wrong-match{border-color:var(--fail);animation:shake .4s}
+
+/* Explanation */
+.explanation{margin-top:16px;padding:16px;border-radius:10px;background:rgba(108,99,255,.08);border-left:3px solid var(--accent);font-size:.85rem;line-height:1.5;color:var(--text2);animation:fadeIn .3s}
+.explanation strong{color:var(--text)}
+
+/* Results */
+.results{text-align:center;padding:32px}
+.results h2{font-size:1.4rem;margin-bottom:8px}
+.results .score{font-size:3rem;font-weight:800;background:linear-gradient(135deg,var(--accent),var(--accent3));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin:16px 0}
+.results .score-label{color:var(--text2);font-size:.9rem;margin-bottom:24px}
+.results-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.results-btns button{padding:12px 24px;border-radius:10px;font-size:.85rem;font-weight:600}
+.btn-retry{background:var(--accent);color:#fff}
+.btn-next{background:var(--accent3);color:#000}
+.btn-home{background:var(--surface);color:var(--text)}
+
+/* Stats screen */
+.stats-panel{background:var(--surface);border-radius:var(--radius);padding:24px;margin-top:12px}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-top:16px}
+.stat-card{background:var(--surface2);border-radius:10px;padding:16px;text-align:center}
+.stat-card .stat-val{font-size:1.8rem;font-weight:800;color:var(--accent)}
+.stat-card .stat-label{font-size:.75rem;color:var(--text2);margin-top:4px}
+
+/* Spaced rep indicator */
+.sr-badge{display:inline-block;padding:3px 8px;border-radius:6px;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.sr-new{background:rgba(108,99,255,.2);color:var(--accent)}
+.sr-learning{background:rgba(255,230,109,.2);color:var(--gold)}
+.sr-review{background:rgba(78,205,196,.2);color:var(--accent3)}
+.sr-mastered{background:rgba(78,205,196,.3);color:#fff}
+
+/* Animations */
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.fade-in{animation:fadeIn .3s ease}
+
+/* Save indicator */
+.save-toast{position:fixed;bottom:20px;right:20px;background:var(--surface);border:1px solid var(--accent3);color:var(--accent3);padding:10px 18px;border-radius:10px;font-size:.8rem;opacity:0;transition:opacity .3s;pointer-events:none;z-index:100}
+.save-toast.show{opacity:1}
+
+/* Settings */
+.settings-panel{background:var(--surface);border-radius:var(--radius);padding:24px;margin-top:12px}
+.setting-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--surface2)}
+.setting-row:last-child{border:none}
+.setting-label{font-size:.9rem}
+.setting-desc{font-size:.75rem;color:var(--text2)}
+.danger-btn{background:var(--fail);color:#fff;padding:8px 16px;border-radius:8px;font-size:.8rem}
+.export-btn{background:var(--accent3);color:#000;padding:8px 16px;border-radius:8px;font-size:.8rem}
+
+/* Responsive */
+@media(max-width:600px){
+  .match-container{grid-template-columns:1fr}
+  .units-grid{grid-template-columns:1fr}
+  .app{padding:12px}
+  .question-text{font-size:1rem}
+}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <!-- Header -->
+  <div class="header">
+    <h1>Power of the Purse</h1>
+    <div class="subtitle">Congressional Budget Process Memory Game</div>
+    <div class="streak-bar">
+      <span>Streak: <span class="num" id="streak">0</span></span>
+      <span>Mastered: <span class="num" id="mastered">0</span>/<span id="total-cards">0</span></span>
+      <span>XP: <span class="num" id="xp">0</span></span>
+    </div>
+  </div>
+
+  <!-- Navigation -->
+  <div class="nav">
+    <button class="active" data-tab="units">Units</button>
+    <button data-tab="review">Review Due</button>
+    <button data-tab="stats">Stats</button>
+    <button data-tab="settings">Settings</button>
+  </div>
+
+  <!-- Tab: Units -->
+  <div class="tab-content" id="tab-units">
+    <div class="units-grid" id="units-grid"></div>
+  </div>
+
+  <!-- Tab: Review -->
+  <div class="tab-content" id="tab-review" style="display:none"></div>
+
+  <!-- Tab: Stats -->
+  <div class="tab-content" id="tab-stats" style="display:none"></div>
+
+  <!-- Tab: Settings -->
+  <div class="tab-content" id="tab-settings" style="display:none">
+    <div class="settings-panel">
+      <h3 style="margin-bottom:16px">Settings & Save State</h3>
+      <div class="setting-row">
+        <div><div class="setting-label">Export Progress</div><div class="setting-desc">Download your progress as a JSON file</div></div>
+        <button class="export-btn" onclick="exportSave()">Export</button>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">Import Progress</div><div class="setting-desc">Restore from a previously exported file</div></div>
+        <div><input type="file" id="import-file" accept=".json" style="font-size:.8rem;color:var(--text2)" onchange="importSave(event)"></div>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">Reset All Progress</div><div class="setting-desc">Clear all saved data and start fresh</div></div>
+        <button class="danger-btn" onclick="resetAll()">Reset</button>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">Auto-save</div><div class="setting-desc">Progress saves automatically to your browser</div></div>
+        <span style="color:var(--success);font-size:.85rem">Active</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game Screen (overlays tabs) -->
+  <div class="game-screen" id="game-screen">
+    <div class="game-header">
+      <button class="back-btn" onclick="exitGame()">Back</button>
+      <h2 id="game-title"></h2>
+      <div id="game-score" style="font-size:.85rem;color:var(--text2)"></div>
+    </div>
+    <div class="mode-selector" id="mode-selector"></div>
+    <div class="question-area" id="question-area"></div>
+  </div>
+</div>
+
+<div class="save-toast" id="save-toast">Progress saved</div>
+
+<script>
+// ===== DATA =====
+const UNITS = [
+  {
+    id:"foundations",
+    num:"Unit 1",
+    title:"Constitutional Foundations",
+    desc:"The power of the purse, Article I provisions, and constitutional framework.",
+    cards:[
+      {id:"f1",q:"What constitutional article grants Congress the 'power of the purse'?",a:"Article I",explain:"Article I, Sections 8 and 9 grant Congress the power to tax, borrow, and control appropriations from the Treasury."},
+      {id:"f2",q:"Which section of Article I grants Congress the power to lay and collect taxes and the power to borrow?",a:"Section 8",explain:"Article I, Section 8 enumerates Congress's powers including taxation and borrowing."},
+      {id:"f3",q:"What does Article I, Section 9 say about drawing funds from the Treasury?",a:"No money shall be drawn from the Treasury but in consequence of appropriations made by law",explain:"This clause ensures that all government spending must be authorized by law passed by Congress."},
+      {id:"f4",q:"Does the Constitution prescribe a specific role for the President in budgetary matters?",a:"No — the Constitution does not expressly provide a specific role for the President",explain:"The President's budgetary role was established through statutes (like the Budget and Accounting Act of 1921), not the Constitution."},
+      {id:"f5",q:"Under Article I, Section 5, who determines the rules of congressional proceedings?",a:"Each House may determine the Rules of its Proceedings",explain:"This allows the House and Senate to adapt procedures independently as needed."},
+      {id:"f6",q:"What is the Origination Clause and where is it found?",a:"Article I, Section 7 — all revenue measures must originate in the House of Representatives",explain:"This gives the House primacy in tax legislation, though the Senate can amend."},
+      {id:"f7",q:"What are the three main constitutional provisions related to the 'power of the purse'?",a:"Power to tax (Art I §8), power to borrow (Art I §8), and appropriations requirement (Art I §9)",explain:"Together these provisions give Congress comprehensive control over federal finances."},
+    ]
+  },
+  {
+    id:"history",
+    num:"Unit 2",
+    title:"Historical Evolution",
+    desc:"From early committees to the 1974 Budget Act — how the process developed.",
+    cards:[
+      {id:"h1",q:"When was the House Ways and Means Committee first given responsibility for revenue, spending, and debt?",a:"The Fourth Congress (1795–1797)",explain:"The Ways and Means Committee was among the earliest standing committees with fixed budgetary jurisdiction."},
+      {id:"h2",q:"When was the Senate Committee on Finance established?",a:"During the second session of the 14th Congress (1815–1817)",explain:"The Finance Committee was established as part of the Senate's standing committee system."},
+      {id:"h3",q:"When did the House create a separate Committee on Appropriations?",a:"1865",explain:"The Senate followed with its own Appropriations Committee in 1867."},
+      {id:"h4",q:"What was the origin year of the House rule mandating separate consideration of appropriations and policy legislation?",a:"1835 (discussion) and formally added in the 25th Congress (1837–1839)",explain:"The rule stated no appropriation shall be reported for any expenditure not previously authorized by law."},
+      {id:"h5",q:"What was the 'purpose statute' of 1809?",a:"It required that sums appropriated for each branch be solely applied to the objects for which they were appropriated",explain:"This prevented agencies from redirecting funds to purposes other than those Congress intended."},
+      {id:"h6",q:"When was the first antideficiency provision enacted, and what did it do?",a:"1870 — prohibited agencies from exceeding appropriations or obligating payments in anticipation of future appropriations",explain:"This was the foundation for modern antideficiency laws that prevent agencies from overspending."},
+      {id:"h7",q:"What did early appropriations bills look like in the House?",a:"'Supply bills' with blanks instead of dollar amounts, filled in by floor action",explain:"These were considered routine matters of form, with minimal debate except to fill in the blanks."},
+      {id:"h8",q:"When did the House adopt language formally restricting legislative provisions in appropriations bills?",a:"1876",explain:"The rule allowed exceptions only for provisions that were germane and would retrench (reduce) expenditures."},
+    ]
+  },
+  {
+    id:"exec_budget",
+    num:"Unit 3",
+    title:"The Executive Budget & OMB",
+    desc:"The President's budget, OMB's role, and the Budget and Accounting Act of 1921.",
+    cards:[
+      {id:"e1",q:"What landmark act created a statutory role for the President in federal budgeting?",a:"The Budget and Accounting Act of 1921",explain:"It required agencies to submit requests to the President, who then submits a consolidated request to Congress."},
+      {id:"e2",q:"What two offices were established by the Budget and Accounting Act of 1921?",a:"Bureau of the Budget (now OMB) and the General Accounting Office (now GAO)",explain:"OMB assists the President; GAO serves as an independent auditor of government budgetary activities."},
+      {id:"e3",q:"When must the President submit his budget to Congress?",a:"No later than the first Monday in February",explain:"Preparation typically begins 18 months before the start of the fiscal year."},
+      {id:"e4",q:"What is OMB Circular No. A-11?",a:"An annual document providing agencies with budgetary laws, policies, and instructions for budget preparation and execution",explain:"It's the primary guidance document for federal agencies regarding budget formulation and submission."},
+      {id:"e5",q:"What is the 'passback' in the executive budget process?",a:"OMB's response to agencies with recommendations for revisions to their budget requests",explain:"Agencies can appeal passback decisions to the OMB director or even the President."},
+      {id:"e6",q:"What is the Mid-Session Review?",a:"A supplemental summary of the budget the President must submit before July 16",explain:"It includes any substantial changes in estimates of expenditures or receipts since the original submission."},
+      {id:"e7",q:"Is the President's budget binding on Congress?",a:"No — it is only a request to Congress",explain:"The President's budget establishes wishes regarding national policies but Congress ultimately decides."},
+      {id:"e8",q:"What was the Bureau of the Budget renamed to, and when?",a:"Office of Management and Budget (OMB), pursuant to Reorganization Plan No. 2 of 1970",explain:"The restructuring expanded its role to include management oversight in addition to budget coordination."},
+    ]
+  },
+  {
+    id:"budget_res",
+    num:"Unit 4",
+    title:"The Budget Resolution",
+    desc:"Concurrent resolutions, functional categories, enforcement, and deeming resolutions.",
+    cards:[
+      {id:"b1",q:"What is a budget resolution?",a:"A concurrent resolution that allows Congress to set aggregate budget policies and functional spending priorities",explain:"It is not a law — the President cannot sign or veto it — so no money is raised or spent pursuant to it."},
+      {id:"b2",q:"Why doesn't the budget resolution have statutory effect?",a:"Because it is a concurrent resolution, not a law — the President cannot sign or veto it",explain:"Its main purpose is to establish the framework for enforcement through points of order."},
+      {id:"b3",q:"What are the four aggregates required in a budget resolution?",a:"Total revenues, total new budget authority and outlays, surplus or deficit, and public debt",explain:"These aggregates establish the enforceable spending and revenue parameters."},
+      {id:"b4",q:"What act established the budget resolution process?",a:"The Congressional Budget Act of 1974 (CBA)",explain:"The CBA also created the Budget Committees and CBO."},
+      {id:"b5",q:"How many years must a budget resolution cover at minimum?",a:"At least five fiscal years (the budget year plus four)",explain:"In recent practice, budget resolutions have often covered a 10-year period."},
+      {id:"b6",q:"What is a Section 302(a) allocation?",a:"The allocation of total spending in the budget resolution among committees with spending jurisdiction",explain:"Section 302(b) further requires Appropriations Committees to subdivide their allocation among subcommittees."},
+      {id:"b7",q:"What is a 'deeming resolution'?",a:"An alternate means to establish enforceable budget levels when Congress hasn't agreed on a budget resolution",explain:"They 'deem' certain levels as if included in a budget resolution for enforcement purposes."},
+      {id:"b8",q:"How is debate limited on a budget resolution in the Senate?",a:"Section 305 of the CBA limits total debate to 50 hours, equally divided",explain:"This means cloture is unnecessary — the question can be decided by simple majority."},
+      {id:"b9",q:"What is a 'vote-a-rama'?",a:"When debate time expires on a budget resolution or reconciliation bill, senators continue offering amendments with no further debate",explain:"There is no limit on the number of amendments, only on debate time."},
+    ]
+  },
+  {
+    id:"reconciliation",
+    num:"Unit 5",
+    title:"The Reconciliation Process",
+    desc:"Reconciliation instructions, expedited procedures, and the Byrd Rule.",
+    cards:[
+      {id:"r1",q:"What is reconciliation?",a:"An expedited procedure for changing existing revenue or direct spending laws to implement budget resolution policies",explain:"Section 310 of the CBA provides reconciliation procedures including limits on debate."},
+      {id:"r2",q:"What must happen before reconciliation can be used?",a:"Reconciliation instructions must be included in the budget resolution",explain:"Both chambers must agree on the budget resolution, making bicameral agreement the first limitation."},
+      {id:"r3",q:"What does the Byrd Rule (Section 313 CBA) prohibit?",a:"Including extraneous (nonbudgetary) provisions in reconciliation legislation",explain:"If sustained, the provision is stricken but the bill continues. Named after Senator Robert Byrd."},
+      {id:"r4",q:"How much debate time is allowed on a reconciliation bill in the Senate?",a:"20 hours, equally divided between majority and minority",explain:"This is the key feature making reconciliation powerful — it avoids the need for a 60-vote cloture."},
+      {id:"r5",q:"Can reconciliation be used without a budget resolution?",a:"No — reconciliation instructions in the budget resolution are a prerequisite",explain:"This is perhaps the most significant limitation on the use of reconciliation."},
+      {id:"r6",q:"What is the Budget Committee required to do with legislation submitted by instructed committees?",a:"Report it 'without any substantive revision'",explain:"The Budget Committee packages the responses but cannot change the substance."},
+      {id:"r7",q:"If a committee is instructed to reduce spending by $X, is that a minimum or maximum?",a:"A minimum — the committee may report greater net savings",explain:"For revenue increases, the instructed amount is also a minimum. For revenue decreases, it's a maximum."},
+      {id:"r8",q:"How much debate time is allowed on a reconciliation conference report in the Senate?",a:"10 hours",explain:"This further protects reconciliation from filibuster at the conference report stage."},
+    ]
+  },
+  {
+    id:"appropriations",
+    num:"Unit 6",
+    title:"The Appropriations Process",
+    desc:"Regular appropriations, CRs, authorizations vs. appropriations, and the annual cycle.",
+    cards:[
+      {id:"a1",q:"What are the three main types of appropriations measures?",a:"Regular, supplemental, and continuing appropriations (CRs)",explain:"Regular = next FY funding; Supplemental = additional current FY; CRs = interim funding when regular is delayed."},
+      {id:"a2",q:"How many regular appropriations bills does Congress typically act on in a session?",a:"12",explain:"These correspond to the 12 parallel subcommittees in the House and Senate Appropriations Committees."},
+      {id:"a3",q:"By custom, where do appropriations measures originate?",a:"The House of Representatives",explain:"Similar to the constitutional requirement for revenue bills, though for appropriations this is custom, not constitutional mandate."},
+      {id:"a4",q:"What is the basic unit of an appropriations bill?",a:"The account — a single unnumbered paragraph providing a lump sum",explain:"Provisions within a paragraph pertain to that account alone unless expressly given broader scope."},
+      {id:"a5",q:"What is an 'unauthorized appropriation'?",a:"An appropriation without current authorization, in excess of an authorization ceiling, or for purposes not previously authorized by law",explain:"If enacted, unauthorized appropriations still have the force of law."},
+      {id:"a6",q:"What is the difference between an authorization and an appropriation?",a:"An authorization establishes or continues a program; an appropriation provides budget authority to fund it",explain:"House and Senate rules maintain this separation to provide for distinct consideration of policy and funding."},
+      {id:"a7",q:"When is the federal fiscal year?",a:"October 1 through September 30",explain:"This was set by the CBA starting with FY1977. Previously, the fiscal year ran July 1 to June 30."},
+      {id:"a8",q:"What is a 'no-year' fund?",a:"An appropriation that remains available until expended, with no time limit on obligation",explain:"Most appropriations are single-year, but Congress can specify longer availability periods."},
+      {id:"a9",q:"What four issues do continuing resolutions typically address?",a:"Coverage, duration, rate of operations, and limits on usage (e.g., no new starts)",explain:"CRs also often include 'anomalies' — specific adjustments for particular programs."},
+      {id:"a10",q:"After May 15, can the House consider appropriations bills without a budget resolution?",a:"Yes — the CBA permits this exception",explain:"But without a budget resolution, there would be no enforceable upper limit on overall appropriations."},
+    ]
+  },
+  {
+    id:"revenue_debt",
+    num:"Unit 7",
+    title:"Revenue & Debt Legislation",
+    desc:"Tax legislation, the debt limit, tax expenditures, and the Gephardt Rule.",
+    cards:[
+      {id:"d1",q:"Which committees have jurisdiction over tax and tariff legislation?",a:"House Ways and Means Committee and Senate Finance Committee",explain:"House Rule XXI, clause 5 bars consideration of tax measures reported from other committees."},
+      {id:"d2",q:"What are 'tax expenditures'?",a:"Revenue forgone due to deductions, exemptions, credits, and other exceptions to the basic tax structure",explain:"They are alternatives to spending policy actions like grants or loans, defined in the 1974 CBA."},
+      {id:"d3",q:"What is the debt limit (debt ceiling)?",a:"A statutory limit on the total amount of public debt the federal government can issue",explain:"Congress must periodically raise or suspend it to allow continued borrowing."},
+      {id:"d4",q:"What is the Gephardt Rule?",a:"A House rule providing for automatic engrossment of a debt limit increase upon adoption of a budget resolution",explain:"It avoided a separate vote on the debt limit. It was repealed and reinstated multiple times."},
+      {id:"d5",q:"In recent years, how has Congress handled the debt limit instead of raising it by a fixed amount?",a:"Suspending the debt limit for a set amount of time",explain:"When suspension ends, the limit is reestablished at a level accommodating debt issued during the suspension."},
+      {id:"d6",q:"Who estimates the revenue effects of tax legislation?",a:"The Joint Committee on Taxation",explain:"CBO handles spending estimates, while JCT handles revenue estimates."},
+    ]
+  },
+  {
+    id:"spending_concepts",
+    num:"Unit 8",
+    title:"Budget Concepts & Spending Types",
+    desc:"Budget authority, outlays, discretionary vs. mandatory, baselines, and the budget scope.",
+    cards:[
+      {id:"s1",q:"What is budget authority?",a:"Statutory authority to enter into obligations for which payments will be made by the Treasury",explain:"It is the key point at which Congress exercises control over federal spending."},
+      {id:"s2",q:"What is the difference between obligations and outlays?",a:"Obligations are commitments (contracts, orders); outlays are actual payments that liquidate obligations",explain:"An agency's outlays in a given year can come from both current and prior year obligations."},
+      {id:"s3",q:"What is a 'spendout rate'?",a:"The rate at which budget authority is obligated and payments are disbursed",explain:"Programs with high spendout rates expend most budget authority during the fiscal year it's provided."},
+      {id:"s4",q:"What is discretionary spending?",a:"Budget authority provided in annual appropriation acts and the resulting outlays",explain:"It is controlled through the annual appropriations process."},
+      {id:"s5",q:"What is direct (mandatory) spending?",a:"Spending controlled by eligibility rules and benefit formulas in authorizing law, not annual appropriations",explain:"Examples include Social Security, Medicare, Medicaid, and military pensions."},
+      {id:"s6",q:"What are 'appropriated entitlements'?",a:"Mandatory programs where funding is provided through appropriations, but spending levels are determined by authorizing legislation",explain:"Appropriations Committees have little discretion as to amounts for these programs."},
+      {id:"s7",q:"What are 'offsetting collections' and 'offsetting receipts'?",a:"Receipts from business-like transactions deducted from outlays rather than counted as revenues",explain:"Offsetting collections usually don't require further appropriation; offsetting receipts usually do."},
+      {id:"s8",q:"What are the two main fund groups in the federal budget?",a:"Federal funds (mainly the general fund) and trust funds",explain:"Trust funds are designated for specific purposes by statute (e.g., Social Security trust funds)."},
+      {id:"s9",q:"What is a baseline in federal budgeting?",a:"A projection of spending, revenues, and deficits under existing law — a benchmark for measuring proposed changes",explain:"CBO prepares baseline projections used throughout the budget process."},
+      {id:"s10",q:"What did the Federal Credit Reform Act of 1990 change?",a:"Shifted budgeting for federal loans from cash flow to estimated subsidy cost",explain:"First effective for FY1992, it had modest budget-total impact but substantial impact on loan program budgeting."},
+    ]
+  },
+  {
+    id:"execution",
+    num:"Unit 9",
+    title:"Budget Execution",
+    desc:"Antideficiency Act, apportionment, reprogramming, transfers, impoundment, and shutdowns.",
+    cards:[
+      {id:"x1",q:"What are the three general principles governing agency use of appropriated funds?",a:"Purpose, time (period of availability), and amount",explain:"Agencies must use funds for designated purposes, within the available time period, and not exceed the amount."},
+      {id:"x2",q:"What is apportionment?",a:"The process of allocating budget authority in installments over the fiscal year to prevent premature exhaustion",explain:"Required under the Antideficiency Act and managed with OMB oversight."},
+      {id:"x3",q:"What four things does the Antideficiency Act prohibit?",a:"(1) Excess expenditures, (2) advance expenditures, (3) accepting voluntary services (except emergencies), (4) exceeding apportionments",explain:"Violations can result in administrative discipline or criminal penalties."},
+      {id:"x4",q:"What are the 'Civiletti Letters' and what do they say?",a:"1980-81 Attorney General opinions stating agencies generally cannot operate without appropriations during a funding gap",explain:"They established the legal basis for government shutdowns and exceptions for safety of human life or protection of property."},
+      {id:"x5",q:"What is the difference between reprogramming and transfer of funds?",a:"Reprogramming shifts funds within an account; transfer shifts funds between accounts and requires statutory authority",explain:"Both require notification to Congress, and original restrictions follow the funds."},
+      {id:"x6",q:"What is an impoundment?",a:"Presidential action or inaction that delays (deferral) or withholds (rescission) obligation of budget authority",explain:"The Impoundment Control Act of 1974 limits the President's authority to impound funds."},
+      {id:"x7",q:"How long can the President withhold funds under a rescission proposal?",a:"45 days of continuous session — funds must be released if Congress doesn't act",explain:"The President must send a special message to Congress specifying amount, accounts, and reasons."},
+      {id:"x8",q:"What happened to the deferral power after INS v. Chadha (1983)?",a:"The one-house legislative veto was found unconstitutional, and policy deferrals were eliminated",explain:"Congress amended the ICA in 1987 to limit deferrals to contingencies, efficiency savings, or as specifically provided by law."},
+      {id:"x9",q:"For what purposes are deferrals now permissible?",a:"(1) Contingencies, (2) savings from efficiency, (3) as specifically provided by law",explain:"Deferrals cannot extend beyond the end of the fiscal year."},
+    ]
+  },
+  {
+    id:"enforcement",
+    num:"Unit 10",
+    title:"Budget Enforcement & Control",
+    desc:"PAYGO, sequestration, points of order, the BCA, and statutory budget controls.",
+    cards:[
+      {id:"n1",q:"What was the Balanced Budget and Emergency Deficit Control Act of 1985?",a:"A law establishing statutory deficit targets with sequestration as enforcement, but without deficit reduction legislation itself",explain:"It specified annual deficit limits and required the President to issue sequester orders if they were breached."},
+      {id:"n2",q:"How did the Budget Enforcement Act of 1990 change the approach to budget control?",a:"Shifted from enforcing deficit targets to preserving savings from enacted deficit reduction legislation via PAYGO and spending caps",explain:"It focused on inhibiting future legislation from undoing savings, rather than forcing unspecified future cuts."},
+      {id:"n3",q:"What is PAYGO (pay-as-you-go)?",a:"A requirement that the net effect of new direct spending or revenue legislation not increase the deficit",explain:"If breached, the President must issue a sequester order for automatic across-the-board cuts to non-exempt programs."},
+      {id:"n4",q:"What is sequestration?",a:"Automatic cancellation of budgetary resources via presidential order to enforce a statutory budget requirement",explain:"Sequestered funds are permanently cancelled (except for revolving, special, and trust funds)."},
+      {id:"n5",q:"What did the Budget Control Act of 2011 establish?",a:"Statutory limits on discretionary spending for FY2012-FY2021, divided into defense and nondefense categories",explain:"It also triggered additional automatic spending reductions when the Joint Committee on Deficit Reduction failed to enact legislation."},
+      {id:"n6",q:"How many votes are needed in the Senate to waive most budget enforcement points of order?",a:"Three-fifths of all Senators duly chosen and sworn (typically 60 votes)",explain:"Points of order can also be waived by unanimous consent."},
+      {id:"n7",q:"What is scorekeeping?",a:"Estimating the budgetary effects of legislation and comparing those effects to a baseline",explain:"CBO prepares cost estimates; Budget Committees act as official scorekeepers for their chambers."},
+      {id:"n8",q:"What role does CBO play in budget enforcement?",a:"Produces independent analyses, cost estimates, baseline projections, and economic outlook reports for Congress",explain:"CBO was established by the CBA to give Congress independent budgetary information."},
+      {id:"n9",q:"Under Statutory PAYGO, what two scorecards does OMB maintain?",a:"A five-year scorecard and a ten-year scorecard",explain:"If either shows a net deficit increase at the end of a session, the President must issue a sequester order."},
+      {id:"n10",q:"Are points of order self-enforcing?",a:"No — a Member must raise the point of order on the floor before the presiding officer can rule on it",explain:"This means violations can occur if no Member objects."},
+    ]
+  }
+];
+
+// ===== GAME MODES =====
+const MODES = [
+  {id:'flashcard',label:'Flashcards',icon:'🃏'},
+  {id:'mcq',label:'Quiz',icon:'✦'},
+  {id:'fillin',label:'Fill-in',icon:'✎'},
+  {id:'timeline',label:'Timeline',icon:'⟶'},
+  {id:'match',label:'Match',icon:'⟷'},
+];
+
+// Timeline data per unit
+const TIMELINES = {
+  history:[
+    {year:"1795",text:"House Ways and Means Committee given standing budget jurisdiction"},
+    {year:"1809",text:"Purpose statute enacted — funds must be used for designated purposes"},
+    {year:"1835",text:"House discusses separating policy from appropriations legislation"},
+    {year:"1865",text:"House creates separate Committee on Appropriations"},
+    {year:"1867",text:"Senate creates separate Committee on Appropriations"},
+    {year:"1870",text:"First antideficiency provision enacted"},
+    {year:"1876",text:"House formally restricts legislative language in appropriations bills"},
+  ],
+  exec_budget:[
+    {year:"1921",text:"Budget and Accounting Act creates presidential budget role & Bureau of the Budget"},
+    {year:"1933",text:"20th Amendment ratified — congressional sessions begin January 3"},
+    {year:"1935",text:"Social Security enacted — beginning of broad-based mandatory spending"},
+    {year:"1970",text:"Bureau of the Budget reorganized as OMB"},
+    {year:"1974",text:"Congressional Budget Act creates budget resolution, Budget Committees, and CBO"},
+    {year:"1977",text:"Fiscal year changed to October 1 – September 30"},
+  ],
+  enforcement:[
+    {year:"1870",text:"First antideficiency provision enacted"},
+    {year:"1921",text:"Budget and Accounting Act establishes presidential budget role"},
+    {year:"1974",text:"Congressional Budget and Impoundment Control Act enacted"},
+    {year:"1985",text:"Balanced Budget and Emergency Deficit Control Act (Gramm-Rudman)"},
+    {year:"1990",text:"Budget Enforcement Act shifts focus to PAYGO and spending caps"},
+    {year:"2010",text:"Statutory Pay-As-You-Go Act reinstates PAYGO"},
+    {year:"2011",text:"Budget Control Act establishes FY2012-2021 spending limits"},
+  ],
+};
+
+// Matching sets per unit
+const MATCHES = {
+  foundations:[
+    {term:"Article I, §8",def:"Power to tax and borrow"},
+    {term:"Article I, §9",def:"No money from Treasury without appropriation"},
+    {term:"Article I, §5",def:"Each House sets its own rules"},
+    {term:"Article I, §7",def:"Revenue bills originate in the House"},
+  ],
+  spending_concepts:[
+    {term:"Budget Authority",def:"Legal authority to enter into obligations"},
+    {term:"Obligations",def:"Commitments creating legal liability"},
+    {term:"Outlays",def:"Actual payments from the Treasury"},
+    {term:"Spendout Rate",def:"Rate budget authority is obligated and disbursed"},
+  ],
+  appropriations:[
+    {term:"Regular Appropriations",def:"Budget authority for the next fiscal year"},
+    {term:"Supplemental Appropriations",def:"Additional current FY funding"},
+    {term:"Continuing Resolution",def:"Interim funding when regular is delayed"},
+    {term:"Authorization",def:"Establishes or continues a program"},
+  ],
+  execution:[
+    {term:"Apportionment",def:"Allocating budget authority in installments"},
+    {term:"Reprogramming",def:"Shifting funds within an account"},
+    {term:"Transfer",def:"Moving funds between accounts"},
+    {term:"Impoundment",def:"Delaying or withholding obligation of funds"},
+  ],
+  enforcement:[
+    {term:"PAYGO",def:"New legislation must not increase deficit"},
+    {term:"Sequestration",def:"Automatic cancellation of budget resources"},
+    {term:"Scorekeeping",def:"Estimating budgetary effects of legislation"},
+    {term:"Point of Order",def:"Prohibition raised by a Member on the floor"},
+  ],
+  budget_res:[
+    {term:"Budget Resolution",def:"Concurrent resolution setting aggregate policies"},
+    {term:"302(a) Allocation",def:"Spending distribution to committees"},
+    {term:"302(b) Suballocation",def:"Appropriations Committee subdivisions"},
+    {term:"Deeming Resolution",def:"Alternate enforcement when no resolution"},
+  ],
+  revenue_debt:[
+    {term:"Debt Limit",def:"Statutory cap on total public debt"},
+    {term:"Gephardt Rule",def:"Auto-engross debt limit increase with budget resolution"},
+    {term:"Tax Expenditures",def:"Revenue forgone via deductions/credits/exemptions"},
+    {term:"Origination Clause",def:"Revenue measures must start in the House"},
+  ],
+};
+
+// ===== STATE =====
+let state = {
+  cardStates:{}, // cardId -> {level:0-4, nextReview:timestamp, correct:0, wrong:0}
+  xp:0,
+  streak:0,
+  bestStreak:0,
+  totalAnswered:0,
+  totalCorrect:0,
+  sessionsCompleted:0,
+  lastSave:null,
+};
+
+function loadState(){
+  try{
+    const s = localStorage.getItem('budget_game_state');
+    if(s) state = JSON.parse(s);
+  }catch(e){}
+  initCardStates();
+}
+
+function initCardStates(){
+  UNITS.forEach(u=>u.cards.forEach(c=>{
+    if(!state.cardStates[c.id]){
+      state.cardStates[c.id]={level:0,nextReview:0,correct:0,wrong:0};
+    }
+  }));
+}
+
+function saveState(){
+  state.lastSave = Date.now();
+  localStorage.setItem('budget_game_state',JSON.stringify(state));
+  showToast();
+}
+
+function showToast(){
+  const t=document.getElementById('save-toast');
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),1500);
+}
+
+function exportSave(){
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='budget-game-save.json';
+  a.click();
+}
+
+function importSave(e){
+  const file=e.target.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(ev){
+    try{
+      state=JSON.parse(ev.target.result);
+      initCardStates();
+      saveState();
+      renderAll();
+      alert('Progress imported successfully!');
+    }catch(err){alert('Invalid save file');}
+  };
+  reader.readAsText(file);
+}
+
+function resetAll(){
+  if(!confirm('Are you sure? This will erase ALL progress.'))return;
+  localStorage.removeItem('budget_game_state');
+  state={cardStates:{},xp:0,streak:0,bestStreak:0,totalAnswered:0,totalCorrect:0,sessionsCompleted:0,lastSave:null};
+  initCardStates();
+  saveState();
+  renderAll();
+}
+
+// ===== SPACED REPETITION =====
+const SR_INTERVALS = [0, 60000*5, 60000*30, 60000*60*4, 60000*60*24]; // new, 5min, 30min, 4hr, 1day
+function getCardLevel(id){return state.cardStates[id]?.level||0;}
+function getCardSRLabel(id){
+  const l=getCardLevel(id);
+  if(l===0)return{class:'sr-new',text:'New'};
+  if(l<=1)return{class:'sr-learning',text:'Learning'};
+  if(l<=3)return{class:'sr-review',text:'Review'};
+  return{class:'sr-mastered',text:'Mastered'};
+}
+function cardCorrect(id){
+  const cs=state.cardStates[id];
+  cs.correct++;
+  cs.level=Math.min(4,cs.level+1);
+  cs.nextReview=Date.now()+SR_INTERVALS[cs.level];
+  state.xp+=10*(cs.level);
+  state.streak++;
+  state.bestStreak=Math.max(state.bestStreak,state.streak);
+  state.totalCorrect++;
+  state.totalAnswered++;
+  saveState();
+}
+function cardWrong(id){
+  const cs=state.cardStates[id];
+  cs.wrong++;
+  cs.level=Math.max(0,cs.level-1);
+  cs.nextReview=Date.now()+SR_INTERVALS[cs.level];
+  state.streak=0;
+  state.totalAnswered++;
+  saveState();
+}
+function cardKinda(id){
+  const cs=state.cardStates[id];
+  cs.nextReview=Date.now()+SR_INTERVALS[Math.max(0,cs.level)];
+  state.xp+=3;
+  state.totalAnswered++;
+  saveState();
+}
+
+function getDueCards(){
+  const now=Date.now();
+  const due=[];
+  UNITS.forEach(u=>u.cards.forEach(c=>{
+    const cs=state.cardStates[c.id];
+    if(cs && cs.nextReview<=now) due.push({...c,unit:u});
+  }));
+  return due;
+}
+
+function getMasteredCount(){
+  return Object.values(state.cardStates).filter(c=>c.level>=4).length;
+}
+
+function getTotalCards(){
+  return UNITS.reduce((s,u)=>s+u.cards.length,0);
+}
+
+function getUnitProgress(unit){
+  const cards=unit.cards;
+  const total=cards.length;
+  const mastered=cards.filter(c=>state.cardStates[c.id]?.level>=4).length;
+  const avgLevel=cards.reduce((s,c)=>s+(state.cardStates[c.id]?.level||0),0)/total;
+  return {mastered,total,pct:Math.round(avgLevel/4*100)};
+}
+
+// ===== RENDERING =====
+function renderAll(){
+  updateHeader();
+  renderUnits();
+  renderReview();
+  renderStats();
+}
+
+function updateHeader(){
+  document.getElementById('streak').textContent=state.streak;
+  document.getElementById('mastered').textContent=getMasteredCount();
+  document.getElementById('total-cards').textContent=getTotalCards();
+  document.getElementById('xp').textContent=state.xp;
+}
+
+function renderUnits(){
+  const grid=document.getElementById('units-grid');
+  grid.innerHTML='';
+  UNITS.forEach(u=>{
+    const p=getUnitProgress(u);
+    const card=document.createElement('div');
+    card.className='unit-card';
+    card.onclick=()=>startGame(u);
+    card.innerHTML=`
+      <div class="unit-num">${u.num}</div>
+      <h3>${u.title}</h3>
+      <p>${u.desc}</p>
+      <div class="mastery">${p.pct}%</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${p.pct}%"></div></div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+function renderReview(){
+  const tab=document.getElementById('tab-review');
+  const due=getDueCards();
+  if(due.length===0){
+    tab.innerHTML=`<div class="stats-panel" style="text-align:center;padding:48px">
+      <h3>All caught up!</h3>
+      <p style="color:var(--text2);margin-top:8px">No cards due for review right now. Study new units or come back later.</p>
+    </div>`;
+  }else{
+    tab.innerHTML=`<div class="stats-panel">
+      <h3>${due.length} card${due.length>1?'s':''} due for review</h3>
+      <p style="color:var(--text2);margin:8px 0 16px">These cards are ready based on spaced repetition timing.</p>
+      <button class="submit-btn" onclick="startReview()">Start Review</button>
+    </div>`;
+  }
+}
+
+function renderStats(){
+  const tab=document.getElementById('tab-stats');
+  const totalCards=getTotalCards();
+  const mastered=getMasteredCount();
+  const learning=Object.values(state.cardStates).filter(c=>c.level>0&&c.level<4).length;
+  const newCards=Object.values(state.cardStates).filter(c=>c.level===0).length;
+  const accuracy=state.totalAnswered>0?Math.round(state.totalCorrect/state.totalAnswered*100):0;
+  tab.innerHTML=`<div class="stats-panel">
+    <h3>Your Progress</h3>
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-val">${state.xp}</div><div class="stat-label">Total XP</div></div>
+      <div class="stat-card"><div class="stat-val">${state.bestStreak}</div><div class="stat-label">Best Streak</div></div>
+      <div class="stat-card"><div class="stat-val">${accuracy}%</div><div class="stat-label">Accuracy</div></div>
+      <div class="stat-card"><div class="stat-val">${state.totalAnswered}</div><div class="stat-label">Total Answered</div></div>
+      <div class="stat-card"><div class="stat-val">${mastered}</div><div class="stat-label">Mastered</div></div>
+      <div class="stat-card"><div class="stat-val">${learning}</div><div class="stat-label">Learning</div></div>
+      <div class="stat-card"><div class="stat-val">${newCards}</div><div class="stat-label">New</div></div>
+      <div class="stat-card"><div class="stat-val">${totalCards}</div><div class="stat-label">Total Cards</div></div>
+    </div>
+    <h3 style="margin-top:24px">Unit Breakdown</h3>
+    <div style="margin-top:12px">
+      ${UNITS.map(u=>{
+        const p=getUnitProgress(u);
+        return `<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+          <div style="flex:0 0 140px;font-size:.85rem;color:var(--text2)">${u.title}</div>
+          <div style="flex:1;height:6px;background:var(--surface2);border-radius:3px;overflow:hidden">
+            <div style="height:100%;width:${p.pct}%;background:linear-gradient(90deg,var(--accent),var(--accent3));border-radius:3px"></div>
+          </div>
+          <div style="flex:0 0 40px;font-size:.75rem;color:var(--text2);text-align:right">${p.mastered}/${p.total}</div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
+// ===== TABS =====
+document.querySelectorAll('.nav button').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.tab-content').forEach(t=>t.style.display='none');
+    document.getElementById('tab-'+btn.dataset.tab).style.display='';
+    document.getElementById('game-screen').style.display='none';
+    if(btn.dataset.tab==='review')renderReview();
+    if(btn.dataset.tab==='stats')renderStats();
+  });
+});
+
+// ===== GAME ENGINE =====
+let currentUnit=null;
+let currentMode='flashcard';
+let gameCards=[];
+let gameIndex=0;
+let gameResults=[];
+
+function startGame(unit){
+  currentUnit=unit;
+  gameCards=shuffle([...unit.cards]);
+  gameIndex=0;
+  gameResults=[];
+  document.querySelectorAll('.tab-content').forEach(t=>t.style.display='none');
+  const gs=document.getElementById('game-screen');
+  gs.style.display='';
+  document.getElementById('game-title').textContent=unit.title;
+
+  const ms=document.getElementById('mode-selector');
+  const availModes=[...MODES];
+  // Check if timeline/match available for this unit
+  const hasTimeline=!!TIMELINES[unit.id];
+  const hasMatch=!!MATCHES[unit.id];
+  ms.innerHTML=availModes.map(m=>{
+    const disabled=(m.id==='timeline'&&!hasTimeline)||(m.id==='match'&&!hasMatch);
+    if(disabled)return'';
+    return `<button class="mode-btn ${m.id===currentMode?'active':''}" onclick="switchMode('${m.id}')">${m.icon} ${m.label}</button>`;
+  }).join('');
+
+  renderQuestion();
+}
+
+function startReview(){
+  const due=getDueCards();
+  if(due.length===0)return;
+  currentUnit={id:'review',title:'Review',cards:due};
+  gameCards=shuffle(due);
+  gameIndex=0;
+  gameResults=[];
+  currentMode='flashcard';
+  document.querySelectorAll('.tab-content').forEach(t=>t.style.display='none');
+  const gs=document.getElementById('game-screen');
+  gs.style.display='';
+  document.getElementById('game-title').textContent='Review Session';
+  const ms=document.getElementById('mode-selector');
+  ms.innerHTML=MODES.slice(0,3).map(m=>
+    `<button class="mode-btn ${m.id===currentMode?'active':''}" onclick="switchMode('${m.id}')">${m.icon} ${m.label}</button>`
+  ).join('');
+  renderQuestion();
+}
+
+function switchMode(mode){
+  currentMode=mode;
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.mode-btn').forEach(b=>{if(b.textContent.toLowerCase().includes(mode)||b.onclick.toString().includes("'"+mode+"'"))b.classList.add('active');});
+  if(mode==='timeline')renderTimeline();
+  else if(mode==='match')renderMatch();
+  else renderQuestion();
+}
+
+function exitGame(){
+  document.getElementById('game-screen').style.display='none';
+  document.querySelectorAll('.tab-content').forEach(t=>t.style.display='none');
+  document.getElementById('tab-units').style.display='';
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
+  document.querySelector('.nav button[data-tab="units"]').classList.add('active');
+  renderAll();
+}
+
+function renderQuestion(){
+  const area=document.getElementById('question-area');
+  if(gameIndex>=gameCards.length){
+    renderResults();
+    return;
+  }
+  const card=gameCards[gameIndex];
+  const sr=getCardSRLabel(card.id);
+  document.getElementById('game-score').textContent=`${gameIndex+1}/${gameCards.length}`;
+
+  // Dots
+  const dots=gameCards.map((_,i)=>{
+    let cls='q-dot';
+    if(i<gameIndex)cls+= gameResults[i]?' done':' wrong';
+    if(i===gameIndex)cls+=' current';
+    return `<div class="${cls}"></div>`;
+  }).join('');
+
+  if(currentMode==='flashcard') renderFlashcard(area,card,sr,dots);
+  else if(currentMode==='mcq') renderMCQ(area,card,sr,dots);
+  else if(currentMode==='fillin') renderFillIn(area,card,sr,dots);
+}
+
+function renderFlashcard(area,card,sr,dots){
+  area.innerHTML=`
+    <div class="q-progress"><div class="q-counter">${dots}</div><span class="sr-badge ${sr.class}">${sr.text}</span></div>
+    <div class="flashcard-container" onclick="this.querySelector('.flashcard').classList.toggle('flipped')">
+      <div class="flashcard">
+        <div class="flash-front">
+          <div>${card.q}</div>
+          <div class="flash-hint">Click to flip</div>
+        </div>
+        <div class="flash-back">
+          <div><strong>${card.a}</strong></div>
+          <div style="margin-top:10px;font-size:.8rem;color:var(--text2)">${card.explain}</div>
+        </div>
+      </div>
+    </div>
+    <div class="flash-btns">
+      <button class="btn-didnt" onclick="flashAnswer(0)">Didn't Know</button>
+      <button class="btn-kinda" onclick="flashAnswer(1)">Kinda Knew</button>
+      <button class="btn-knew" onclick="flashAnswer(2)">Knew It!</button>
+    </div>
+  `;
+}
+
+function flashAnswer(level){
+  const card=gameCards[gameIndex];
+  if(level===0){cardWrong(card.id);gameResults.push(false);}
+  else if(level===1){cardKinda(card.id);gameResults.push(true);}
+  else{cardCorrect(card.id);gameResults.push(true);}
+  gameIndex++;
+  updateHeader();
+  renderQuestion();
+}
+
+function renderMCQ(area,card,sr,dots){
+  // Generate choices
+  const allCards=UNITS.flatMap(u=>u.cards).filter(c=>c.id!==card.id);
+  const wrongAnswers=shuffle(allCards).slice(0,3).map(c=>c.a);
+  const choices=shuffle([card.a,...wrongAnswers]);
+
+  area.innerHTML=`
+    <div class="q-progress"><div class="q-counter">${dots}</div><span class="sr-badge ${sr.class}">${sr.text}</span></div>
+    <div class="question-text">${card.q}</div>
+    <div class="choices" id="choices">
+      ${choices.map((c,i)=>`<button class="choice-btn" onclick="mcqAnswer(${i},'${escapeAttr(card.a)}')">${c}</button>`).join('')}
+    </div>
+  `;
+}
+
+function mcqAnswer(idx,correctAns){
+  correctAns=unescapeAttr(correctAns);
+  const card=gameCards[gameIndex];
+  const btns=document.querySelectorAll('#choices .choice-btn');
+  btns.forEach(b=>{
+    b.classList.add('locked');
+    if(b.textContent.trim()===correctAns)b.classList.add('correct');
+  });
+  const chosen=btns[idx];
+  const isCorrect=chosen.textContent.trim()===correctAns;
+  if(!isCorrect)chosen.classList.add('incorrect');
+
+  if(isCorrect){cardCorrect(card.id);gameResults.push(true);}
+  else{cardWrong(card.id);gameResults.push(false);}
+
+  const area=document.getElementById('question-area');
+  area.insertAdjacentHTML('beforeend',`<div class="explanation fade-in"><strong>${isCorrect?'Correct!':'Not quite.'}</strong> ${card.explain}</div>`);
+
+  updateHeader();
+  setTimeout(()=>{gameIndex++;renderQuestion();},isCorrect?1500:3000);
+}
+
+function renderFillIn(area,card,sr,dots){
+  // Show question with blank
+  const hint=card.a.split(' ').map(w=>w[0]+'_'.repeat(w.length-1)).join(' ');
+  area.innerHTML=`
+    <div class="q-progress"><div class="q-counter">${dots}</div><span class="sr-badge ${sr.class}">${sr.text}</span></div>
+    <div class="question-text">${card.q}</div>
+    <div class="question-context">Hint: ${hint}</div>
+    <input class="blank-input" id="fill-input" placeholder="Type your answer..." autocomplete="off" onkeydown="if(event.key==='Enter')checkFillIn()">
+    <button class="submit-btn" onclick="checkFillIn()">Check</button>
+  `;
+  setTimeout(()=>document.getElementById('fill-input').focus(),100);
+}
+
+function checkFillIn(){
+  const card=gameCards[gameIndex];
+  const input=document.getElementById('fill-input').value.trim().toLowerCase();
+  const correct=card.a.toLowerCase();
+  // Fuzzy match: check if answer contains key words
+  const correctWords=correct.split(/\s+/).filter(w=>w.length>3);
+  const matchCount=correctWords.filter(w=>input.includes(w.toLowerCase())).length;
+  const isCorrect=matchCount>=Math.ceil(correctWords.length*0.5)||input===correct||
+    (correct.includes(input)&&input.length>correct.length*0.4);
+
+  const area=document.getElementById('question-area');
+  if(isCorrect){
+    cardCorrect(card.id);gameResults.push(true);
+    area.insertAdjacentHTML('beforeend',`<div class="explanation fade-in"><strong>Correct!</strong> ${card.a}<br><br>${card.explain}</div>`);
+  }else{
+    cardWrong(card.id);gameResults.push(false);
+    area.insertAdjacentHTML('beforeend',`<div class="explanation fade-in"><strong>Answer:</strong> ${card.a}<br><br>${card.explain}</div>`);
+  }
+  document.getElementById('fill-input').disabled=true;
+  updateHeader();
+  setTimeout(()=>{gameIndex++;renderQuestion();},isCorrect?2000:4000);
+}
+
+// ===== TIMELINE MODE =====
+function renderTimeline(){
+  const area=document.getElementById('question-area');
+  const unitId=currentUnit.id;
+  const data=TIMELINES[unitId];
+  if(!data){area.innerHTML='<p style="color:var(--text2)">No timeline available for this unit.</p>';return;}
+
+  const items=shuffle([...data]);
+  document.getElementById('game-score').textContent='Drag to order';
+
+  area.innerHTML=`
+    <div class="question-text">Arrange these events in chronological order (earliest first):</div>
+    <div class="timeline-items" id="timeline-list">
+      ${items.map((item,i)=>`<div class="timeline-item" draggable="true" data-year="${item.year}" data-idx="${i}">
+        <span class="drag-handle">☰</span>
+        <span>${item.text}</span>
+      </div>`).join('')}
+    </div>
+    <button class="submit-btn" onclick="checkTimeline()">Check Order</button>
+  `;
+
+  // Drag and drop
+  const list=document.getElementById('timeline-list');
+  let dragEl=null;
+  list.addEventListener('dragstart',e=>{
+    dragEl=e.target.closest('.timeline-item');
+    if(dragEl)dragEl.classList.add('dragging');
+  });
+  list.addEventListener('dragend',e=>{
+    if(dragEl)dragEl.classList.remove('dragging');
+    dragEl=null;
+  });
+  list.addEventListener('dragover',e=>{
+    e.preventDefault();
+    const afterEl=getDragAfterElement(list,e.clientY);
+    if(dragEl){
+      if(afterEl==null)list.appendChild(dragEl);
+      else list.insertBefore(dragEl,afterEl);
+    }
+  });
+}
+
+function getDragAfterElement(container,y){
+  const elements=[...container.querySelectorAll('.timeline-item:not(.dragging)')];
+  return elements.reduce((closest,child)=>{
+    const box=child.getBoundingClientRect();
+    const offset=y-box.top-box.height/2;
+    if(offset<0&&offset>closest.offset)return{offset,element:child};
+    return closest;
+  },{offset:Number.NEGATIVE_INFINITY}).element;
+}
+
+function checkTimeline(){
+  const items=[...document.querySelectorAll('#timeline-list .timeline-item')];
+  const years=items.map(el=>parseInt(el.dataset.year));
+  let correct=0;
+  items.forEach((el,i)=>{
+    const inOrder=(i===0||years[i]>=years[i-1]);
+    if(inOrder)correct++;
+    el.classList.add(inOrder?'correct-pos':'wrong-pos');
+    el.querySelector('span:last-child').textContent=`[${el.dataset.year}] ${el.querySelector('span:last-child').textContent}`;
+  });
+
+  const allCorrect=correct===items.length&&isSorted(years);
+  if(allCorrect){
+    state.xp+=50;state.streak++;state.bestStreak=Math.max(state.bestStreak,state.streak);
+  }else{state.streak=0;}
+  state.totalAnswered++;if(allCorrect)state.totalCorrect++;
+  saveState();updateHeader();
+
+  const area=document.getElementById('question-area');
+  area.insertAdjacentHTML('beforeend',`<div class="explanation fade-in"><strong>${allCorrect?'Perfect order!':'Not quite right.'}</strong> The correct chronological order is shown with dates.</div>`);
+}
+
+function isSorted(arr){for(let i=1;i<arr.length;i++)if(arr[i]<arr[i-1])return false;return true;}
+
+// ===== MATCH MODE =====
+let matchState={selected:null,matched:0,total:0};
+
+function renderMatch(){
+  const area=document.getElementById('question-area');
+  const unitId=currentUnit.id;
+  const data=MATCHES[unitId];
+  if(!data){area.innerHTML='<p style="color:var(--text2)">No matching game available for this unit.</p>';return;}
+
+  matchState={selected:null,matched:0,total:data.length};
+  document.getElementById('game-score').textContent=`0/${data.length} matched`;
+
+  const terms=shuffle([...data]);
+  const defs=shuffle([...data]);
+
+  area.innerHTML=`
+    <div class="question-text">Match each term with its definition:</div>
+    <div class="match-container">
+      <div class="match-col">
+        <div class="match-col-header">Terms</div>
+        ${terms.map(t=>`<div class="match-item" data-type="term" data-key="${t.term}" onclick="matchClick(this)">${t.term}</div>`).join('')}
+      </div>
+      <div class="match-col">
+        <div class="match-col-header">Definitions</div>
+        ${defs.map(d=>`<div class="match-item" data-type="def" data-key="${d.term}" onclick="matchClick(this)">${d.def}</div>`).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function matchClick(el){
+  if(el.classList.contains('matched'))return;
+  const type=el.dataset.type;
+
+  if(matchState.selected&&matchState.selected.dataset.type===type){
+    matchState.selected.classList.remove('selected');
+    matchState.selected=el;
+    el.classList.add('selected');
+    return;
+  }
+
+  if(!matchState.selected){
+    matchState.selected=el;
+    el.classList.add('selected');
+    return;
+  }
+
+  // Check match
+  const other=matchState.selected;
+  const term=type==='term'?el:other;
+  const def=type==='def'?el:other;
+
+  if(term.dataset.key===def.dataset.key){
+    term.classList.remove('selected');def.classList.remove('selected');
+    term.classList.add('matched');def.classList.add('matched');
+    matchState.matched++;
+    state.xp+=15;state.streak++;state.bestStreak=Math.max(state.bestStreak,state.streak);
+    state.totalCorrect++;state.totalAnswered++;
+    document.getElementById('game-score').textContent=`${matchState.matched}/${matchState.total} matched`;
+    if(matchState.matched===matchState.total){
+      state.xp+=30;
+      saveState();updateHeader();
+      const area=document.getElementById('question-area');
+      area.insertAdjacentHTML('beforeend',`<div class="explanation fade-in"><strong>All matched!</strong> Great job remembering these connections.</div>`);
+    }
+  }else{
+    term.classList.add('wrong-match');def.classList.add('wrong-match');
+    state.streak=0;state.totalAnswered++;
+    setTimeout(()=>{term.classList.remove('wrong-match','selected');def.classList.remove('wrong-match','selected');},600);
+  }
+  matchState.selected=null;
+  saveState();updateHeader();
+}
+
+// ===== RESULTS =====
+function renderResults(){
+  const area=document.getElementById('question-area');
+  const correct=gameResults.filter(Boolean).length;
+  const total=gameResults.length;
+  const pct=total?Math.round(correct/total*100):0;
+  state.sessionsCompleted++;
+  saveState();
+
+  let grade='Keep studying!';
+  if(pct>=90)grade='Outstanding!';
+  else if(pct>=70)grade='Great work!';
+  else if(pct>=50)grade='Getting there!';
+
+  area.innerHTML=`
+    <div class="results fade-in">
+      <h2>${grade}</h2>
+      <div class="score">${pct}%</div>
+      <div class="score-label">${correct} of ${total} correct</div>
+      <div class="results-btns">
+        <button class="btn-retry" onclick="startGame(UNITS.find(u=>u.id==='${currentUnit.id}'))">Retry Unit</button>
+        <button class="btn-home" onclick="exitGame()">Back to Units</button>
+      </div>
+    </div>
+  `;
+}
+
+// ===== UTILS =====
+function shuffle(arr){
+  const a=[...arr];
+  for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+  return a;
+}
+function escapeAttr(s){return s.replace(/'/g,'&#39;').replace(/"/g,'&quot;');}
+function unescapeAttr(s){return s.replace(/&#39;/g,"'").replace(/&quot;/g,'"');}
+
+// ===== INIT =====
+loadState();
+renderAll();
+</script>
+</body>
+</html>
