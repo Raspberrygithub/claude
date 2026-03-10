@@ -42,6 +42,7 @@ button{cursor:pointer;font-family:inherit;border:none;outline:none}
 
 /* Game screen */
 .game-screen{display:none}
+.game-screen.visible{display:block}
 .game-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
 .game-header h2{font-size:1.2rem}
 .back-btn{background:var(--surface);color:var(--text2);padding:8px 16px;border-radius:8px;font-size:.8rem;transition:.2s}
@@ -724,7 +725,7 @@ document.querySelectorAll('.nav button').forEach(btn=>{
     btn.classList.add('active');
     document.querySelectorAll('.tab-content').forEach(t=>t.style.display='none');
     document.getElementById('tab-'+btn.dataset.tab).style.display='';
-    document.getElementById('game-screen').style.display='none';
+    document.getElementById('game-screen').classList.remove('visible');
     if(btn.dataset.tab==='review')renderReview();
     if(btn.dataset.tab==='stats')renderStats();
   });
@@ -744,7 +745,7 @@ function startGame(unit){
   gameResults=[];
   document.querySelectorAll('.tab-content').forEach(t=>t.style.display='none');
   const gs=document.getElementById('game-screen');
-  gs.style.display='';
+  gs.classList.add('visible');
   document.getElementById('game-title').textContent=unit.title;
 
   const ms=document.getElementById('mode-selector');
@@ -771,7 +772,7 @@ function startReview(){
   currentMode='flashcard';
   document.querySelectorAll('.tab-content').forEach(t=>t.style.display='none');
   const gs=document.getElementById('game-screen');
-  gs.style.display='';
+  gs.classList.add('visible');
   document.getElementById('game-title').textContent='Review Session';
   const ms=document.getElementById('mode-selector');
   ms.innerHTML=MODES.slice(0,3).map(m=>
@@ -790,7 +791,7 @@ function switchMode(mode){
 }
 
 function exitGame(){
-  document.getElementById('game-screen').style.display='none';
+  document.getElementById('game-screen').classList.remove('visible');
   document.querySelectorAll('.tab-content').forEach(t=>t.style.display='none');
   document.getElementById('tab-units').style.display='';
   document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
@@ -854,32 +855,34 @@ function flashAnswer(level){
   renderQuestion();
 }
 
+let mcqCorrectIdx=-1; // track which choice index is correct
+
 function renderMCQ(area,card,sr,dots){
   // Generate choices
   const allCards=UNITS.flatMap(u=>u.cards).filter(c=>c.id!==card.id);
   const wrongAnswers=shuffle(allCards).slice(0,3).map(c=>c.a);
   const choices=shuffle([card.a,...wrongAnswers]);
+  mcqCorrectIdx=choices.indexOf(card.a);
 
   area.innerHTML=`
     <div class="q-progress"><div class="q-counter">${dots}</div><span class="sr-badge ${sr.class}">${sr.text}</span></div>
     <div class="question-text">${card.q}</div>
     <div class="choices" id="choices">
-      ${choices.map((c,i)=>`<button class="choice-btn" onclick="mcqAnswer(${i},'${escapeAttr(card.a)}')">${c}</button>`).join('')}
+      ${choices.map((c,i)=>`<button class="choice-btn" onclick="mcqAnswer(${i})">${c}</button>`).join('')}
     </div>
   `;
 }
 
-function mcqAnswer(idx,correctAns){
-  correctAns=unescapeAttr(correctAns);
+function mcqAnswer(idx){
   const card=gameCards[gameIndex];
   const btns=document.querySelectorAll('#choices .choice-btn');
-  btns.forEach(b=>{
+  const isCorrect=idx===mcqCorrectIdx;
+
+  btns.forEach((b,i)=>{
     b.classList.add('locked');
-    if(b.textContent.trim()===correctAns)b.classList.add('correct');
+    if(i===mcqCorrectIdx)b.classList.add('correct');
   });
-  const chosen=btns[idx];
-  const isCorrect=chosen.textContent.trim()===correctAns;
-  if(!isCorrect)chosen.classList.add('incorrect');
+  if(!isCorrect)btns[idx].classList.add('incorrect');
 
   if(isCorrect){cardCorrect(card.id);gameResults.push(true);}
   else{cardWrong(card.id);gameResults.push(false);}
@@ -1015,19 +1018,19 @@ function renderMatch(){
   matchState={selected:null,matched:0,total:data.length};
   document.getElementById('game-score').textContent=`0/${data.length} matched`;
 
-  const terms=shuffle([...data]);
-  const defs=shuffle([...data]);
+  const terms=shuffle(data.map((d,i)=>({...d,idx:i})));
+  const defs=shuffle(data.map((d,i)=>({...d,idx:i})));
 
   area.innerHTML=`
     <div class="question-text">Match each term with its definition:</div>
     <div class="match-container">
       <div class="match-col">
         <div class="match-col-header">Terms</div>
-        ${terms.map(t=>`<div class="match-item" data-type="term" data-key="${t.term}" onclick="matchClick(this)">${t.term}</div>`).join('')}
+        ${terms.map(t=>`<div class="match-item" data-type="term" data-key="${t.idx}" onclick="matchClick(this)">${t.term}</div>`).join('')}
       </div>
       <div class="match-col">
         <div class="match-col-header">Definitions</div>
-        ${defs.map(d=>`<div class="match-item" data-type="def" data-key="${d.term}" onclick="matchClick(this)">${d.def}</div>`).join('')}
+        ${defs.map(d=>`<div class="match-item" data-type="def" data-key="${d.idx}" onclick="matchClick(this)">${d.def}</div>`).join('')}
       </div>
     </div>
   `;
@@ -1091,13 +1094,18 @@ function renderResults(){
   else if(pct>=70)grade='Great work!';
   else if(pct>=50)grade='Getting there!';
 
+  const isReview=currentUnit.id==='review';
+  const retryBtn=isReview
+    ?`<button class="btn-retry" onclick="startReview()">Review Again</button>`
+    :`<button class="btn-retry" onclick="retryUnit()">Retry Unit</button>`;
+
   area.innerHTML=`
     <div class="results fade-in">
       <h2>${grade}</h2>
       <div class="score">${pct}%</div>
       <div class="score-label">${correct} of ${total} correct</div>
       <div class="results-btns">
-        <button class="btn-retry" onclick="startGame(UNITS.find(u=>u.id==='${currentUnit.id}'))">Retry Unit</button>
+        ${retryBtn}
         <button class="btn-home" onclick="exitGame()">Back to Units</button>
       </div>
     </div>
@@ -1110,8 +1118,12 @@ function shuffle(arr){
   for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
   return a;
 }
-function escapeAttr(s){return s.replace(/'/g,'&#39;').replace(/"/g,'&quot;');}
-function unescapeAttr(s){return s.replace(/&#39;/g,"'").replace(/&quot;/g,'"');}
+
+function retryUnit(){
+  const unit=UNITS.find(u=>u.id===currentUnit.id);
+  if(unit)startGame(unit);
+  else exitGame();
+}
 
 // ===== INIT =====
 loadState();
