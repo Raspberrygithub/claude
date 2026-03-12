@@ -1,0 +1,17 @@
+Title: AI Chatbot Claude Passed My 'Sex and Gender' Test. I'm Impressed.
+Author: Jay W. Richards
+Date: December 2023
+Source: The Stream
+URL: https://stream.org/ai-chatbot-claude-passed-my-sex-and-gender-test-im-impressed/
+
+Richards reports that Claude, the AI chatbot developed by Anthropic, is "truly impressive" -- it was the first AI to pass a test he had been giving to various chatbots. The test asked Claude to summarize in about 350 words the semantic range of the English word "gender," and how it has changed from the 16th century to the present.
+
+Claude's initial answer was mistaken about original uses of "gender" being limited to grammar -- an understandable error since this claim is ubiquitous in recent articles. The widespread assertion that "gender" was purely a grammatical term until the mid-20th century is, Richards notes, a common but incorrect simplification of the word's history. In fact, "gender" has been used as a synonym or euphemism for "sex" (meaning male or female) for centuries, alongside its grammatical usage.
+
+When Richards asked a follow-up question challenging that point, Claude surveyed the evidence more carefully, somehow realized it was repeating a common but mistaken claim, and corrected itself. Rather than doubling down on its initial answer or deflecting the challenge, Claude acknowledged the error and provided a more accurate account of the word's history.
+
+"This interaction exceeds what I expected even in my most techno-optimist moments," Richards writes. What impressed him was not merely that Claude got the right answer eventually, but the process by which it got there. The ability to receive a challenge, reconsider the evidence, recognize an error, and self-correct is a sophisticated cognitive behavior that Richards had not seen in other AI chatbots.
+
+Richards uses the interaction as a springboard for broader reflections on AI capabilities and limitations. While he remains skeptical of strong claims about AI consciousness or sentience, he acknowledges that the quality of AI-generated analysis has improved dramatically. The test also illustrates a broader point about the state of public knowledge on sex and gender: when even the most sophisticated AI systems initially repeat widespread misconceptions, it demonstrates how deeply embedded certain false claims have become in the available information.
+
+The article concludes with Richards noting that while Claude passed his test, the fact that such a test is necessary at all reflects the degree to which gender ideology has distorted public understanding of basic linguistic and biological concepts.
