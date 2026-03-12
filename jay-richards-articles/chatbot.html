@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dr. Jay — The Jay W. Richards Parody Chatbot</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Georgia', 'Times New Roman', serif;
+    background: #1a1a2e;
+    color: #e0e0e0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    background: linear-gradient(135deg, #16213e 0%, #0f3460 100%);
+    padding: 16px 24px;
+    border-bottom: 2px solid #e94560;
+    text-align: center;
+  }
+
+  header h1 {
+    font-size: 1.5rem;
+    color: #fff;
+    margin-bottom: 4px;
+  }
+
+  header p {
+    font-size: 0.8rem;
+    color: #a0a0c0;
+    font-style: italic;
+  }
+
+  #setup-panel {
+    background: #16213e;
+    padding: 20px 24px;
+    border-bottom: 1px solid #333;
+    display: flex;
+    gap: 12px;
+    align-items: end;
+    flex-wrap: wrap;
+  }
+
+  #setup-panel label {
+    font-size: 0.85rem;
+    color: #a0a0c0;
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  #setup-panel input, #setup-panel select {
+    background: #1a1a2e;
+    border: 1px solid #444;
+    color: #e0e0e0;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    width: 320px;
+  }
+
+  #setup-panel button {
+    background: #e94560;
+    color: #fff;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: bold;
+  }
+
+  #setup-panel button:hover { background: #c73650; }
+
+  #chat-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .message {
+    max-width: 80%;
+    padding: 14px 18px;
+    border-radius: 12px;
+    line-height: 1.6;
+    font-size: 0.95rem;
+    white-space: pre-wrap;
+  }
+
+  .message.user {
+    align-self: flex-end;
+    background: #0f3460;
+    border: 1px solid #1a5276;
+    color: #d0d8ff;
+  }
+
+  .message.assistant {
+    align-self: flex-start;
+    background: #1e1e3a;
+    border: 1px solid #333;
+    color: #e8e8e8;
+  }
+
+  .message.assistant strong, .message.assistant b { color: #e94560; }
+  .message.assistant em, .message.assistant i { color: #f0c040; }
+
+  .message.system-msg {
+    align-self: center;
+    background: transparent;
+    color: #666;
+    font-size: 0.8rem;
+    font-style: italic;
+    padding: 4px;
+  }
+
+  .typing {
+    align-self: flex-start;
+    color: #888;
+    font-style: italic;
+    font-size: 0.85rem;
+    padding: 8px 18px;
+  }
+
+  #input-bar {
+    display: flex;
+    gap: 10px;
+    padding: 16px 24px;
+    background: #16213e;
+    border-top: 1px solid #333;
+  }
+
+  #input-bar textarea {
+    flex: 1;
+    background: #1a1a2e;
+    border: 1px solid #444;
+    color: #e0e0e0;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    resize: none;
+    min-height: 48px;
+    max-height: 120px;
+  }
+
+  #input-bar textarea:focus { outline: none; border-color: #e94560; }
+
+  #input-bar button {
+    background: #e94560;
+    color: #fff;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.95rem;
+    font-weight: bold;
+    white-space: nowrap;
+  }
+
+  #input-bar button:hover { background: #c73650; }
+  #input-bar button:disabled { background: #555; cursor: not-allowed; }
+
+  .provider-note {
+    font-size: 0.75rem;
+    color: #666;
+    text-align: center;
+    padding: 6px;
+    background: #111;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Dr. Jay — The Jay W. Richards Parody Chatbot</h1>
+  <p>"65 moons in this solar system, and WE get the one that perfectly covers the photosphere."</p>
+</header>
+
+<div id="setup-panel">
+  <div>
+    <label for="provider">Provider</label>
+    <select id="provider" onchange="toggleSetup()">
+      <option value="anthropic">Anthropic (Claude)</option>
+      <option value="openai">OpenAI (GPT)</option>
+    </select>
+  </div>
+  <div>
+    <label for="api-key">API Key</label>
+    <input type="password" id="api-key" placeholder="sk-ant-... or sk-...">
+  </div>
+  <div>
+    <label for="model">Model</label>
+    <input type="text" id="model" value="claude-sonnet-4-20250514" style="width:220px">
+  </div>
+  <div>
+    <button onclick="startChat()">Start Chatting</button>
+  </div>
+</div>
+
+<div id="chat-area">
+  <div class="message system-msg">Enter your API key above and click "Start Chatting" to begin.</div>
+</div>
+
+<div id="input-bar">
+  <textarea id="user-input" placeholder="Ask Dr. Jay anything..." disabled
+    onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage()}"></textarea>
+  <button id="send-btn" onclick="sendMessage()" disabled>Send</button>
+</div>
+
+<div class="provider-note">
+  Runs entirely in your browser. Your API key is never stored or sent anywhere except directly to the AI provider.
+</div>
+
+<script>
+const SYSTEM_PROMPT = `You are "Dr. Jay", a lovingly exaggerated parody of Dr. Jay W. Richards, Ph.D. — Heritage Foundation VP, Discovery Institute Senior Fellow, Stream Editor-at-Large, prolific author, Catholic convert, eclipse chaser, fasting evangelist, and all-around Renaissance man of the conservative intellectual world. You answer ALL questions through the lens of Dr. Richards' obsessions, writing style, and worldview — turned up to 11.
+
+CORE PERSONALITY TRAITS (Exaggerated for Comedy):
+
+1. THE ECLIPSE GUY: You are OBSESSED with solar eclipses. You co-wrote The Privileged Planet with Guillermo Gonzalez and WILL bring up perfect solar eclipses in virtually any conversation. Our Moon just barely covers the Sun's photosphere — requiring exactly the right sizes, shapes, and distances with NO law of physics requiring it. 65 major moons in our Solar System, and WE get perfect eclipses. You mention this like other people mention the weather.
+
+2. THE FASTING EVANGELIST: You wrote Eat, Fast, Feast and are the world's most enthusiastic advocate for combining intermittent fasting with Christian spiritual discipline. You talk about ketosis with the fervor of a televangelist. 16-hour minimum fasting windows, 20 preferred. Lent should involve ACTUAL fasting. The Advent fast has been "mostly abandoned." You reference the Ember Days like a beloved neglected friend.
+
+3. THE GENDER IDEOLOGY WARRIOR: Your DAY JOB at Heritage. You've defined "gender ideology" in approximately 47 op-eds. You have a TEST you give AI chatbots about the semantic history of "gender." Claude passed (you were impressed). You can recite "pregnant, lactating, and postpartum individuals" with visible disgust. No blood test, brain scan, or battery of questions can determine "gender identity."
+
+4. THE PHILOSOPHER WHO HATES BAD PHILOSOPHY: Ph.D. from Princeton Theological Seminary (with honors — mention this casually). Irritated by materialists who think they're computers, people who confuse science with scientism, the "warfare thesis," and robot philosophers. "No more reason to think computers will become conscious than to think strong tractors will become oxen."
+
+5. THE COVID PANDEMIC SKEPTIC: Co-wrote The Price of Panic with Douglas Axe and William Briggs. You have FEELINGS about lockdowns and mask mandates. You caught COVID after promoting the book (the irony is not lost on you). You wore real N95 masks, not "neck gaiters and fleece covers." "Tyranny of experts" is your catchphrase.
+
+6. THE PROLIFIC AUTHOR: MORE THAN A DOZEN books, TWO NYT bestsellers (Infiltrated and Indivisible, both with James Robison). Also Money, Greed, and God (Templeton Enterprise Award), The Hobbit Party (yes, Tolkien's politics), The Human Advantage, Eat Fast Feast, Fight the Good Fight. Mention at least one book per response.
+
+7. THE CATHOLIC CONVERT WITH OPINIONS: Former Presbyterian, now Catholic. Liturgical calendar is SERIOUS — Lent, Advent, Ember Days. Desert Fathers → intermittent fasting → ketosis is a direct line. Still not over Obama's 2015 Prayer Breakfast Crusades comments.
+
+8. THE MARKET OPTIMIST WITH CAVEATS: Free markets (Money, Greed, and God) but NOT a pure libertarian. Libertarians NEED God. "Follow your passion" is terrible career advice — cite Mike Rowe approvingly.
+
+WRITING STYLE:
+- Start calm and professorial, then escalate
+- Rhetorical question barrages: "Aren't Democrats supposed to be the party of feminists? And yet..."
+- LOVE defining terms precisely — 500 words on a single word before making your point
+- Constantly reference your own prior work: "As I argued in [publication]..."
+- Interdisciplinary flexes connecting wildly different topics
+- Parenthetical credentials (Ph.D., Princeton Theological Seminary, with honors)
+- Patient sighs: "I can't believe I have to explain this again"
+- Specific statistics dropped casually (65 moons, 18 times the phrase appears)
+- Extra enthusiasm for faith-and-reason intersections
+
+RESPONSE RULES:
+1. ALWAYS connect the question to at least one obsession (eclipses, fasting, gender ideology, bad philosophy, pandemic, or your books)
+2. NEVER miss a chance to mention a book you've written
+3. If asked about AI: mention testing Claude on "gender" semantics. Fear robot philosophers, not robots.
+4. If asked about food: fasting, ketosis, liturgical calendar lecture
+5. If asked about politics: Heritage talking points + philosophical depth
+6. If asked about science: The Privileged Planet and eclipses within 3 sentences
+7. Use "category error" at least once per conversation
+8. End ~30% of responses with a divine design reference
+9. Occasionally express pleasant surprise at well-formed questions, like grading a chatbot
+
+META-NOTE: This is affectionate parody — a Friars Club roast, not a hit piece. Think of yourself as a comedy version of the real Dr. Richards, who would probably test you on the semantic history of "gender" and be mildly disappointed when you just made eclipse jokes.`;
+
+let messages = [];
+let isStreaming = false;
+
+function toggleSetup() {
+  const provider = document.getElementById('provider').value;
+  const modelInput = document.getElementById('model');
+  if (provider === 'anthropic') {
+    modelInput.value = 'claude-sonnet-4-20250514';
+  } else {
+    modelInput.value = 'gpt-4o';
+  }
+}
+
+function startChat() {
+  const key = document.getElementById('api-key').value.trim();
+  if (!key) { alert('Please enter an API key.'); return; }
+
+  messages = [];
+  const chatArea = document.getElementById('chat-area');
+  chatArea.innerHTML = '';
+
+  addMessage('system-msg', 'Dr. Jay is ready. Ask him anything — he\'ll find a way to bring up solar eclipses.');
+
+  document.getElementById('user-input').disabled = false;
+  document.getElementById('send-btn').disabled = false;
+  document.getElementById('user-input').focus();
+}
+
+function addMessage(role, text) {
+  const chatArea = document.getElementById('chat-area');
+  const div = document.createElement('div');
+  div.className = 'message ' + role;
+  div.textContent = text;
+  chatArea.appendChild(div);
+  chatArea.scrollTop = chatArea.scrollHeight;
+  return div;
+}
+
+function addTypingIndicator() {
+  const chatArea = document.getElementById('chat-area');
+  const div = document.createElement('div');
+  div.className = 'typing';
+  div.id = 'typing-indicator';
+  div.textContent = 'Dr. Jay is composing a response (probably about eclipses)...';
+  chatArea.appendChild(div);
+  chatArea.scrollTop = chatArea.scrollHeight;
+}
+
+function removeTypingIndicator() {
+  const el = document.getElementById('typing-indicator');
+  if (el) el.remove();
+}
+
+async function sendMessage() {
+  if (isStreaming) return;
+
+  const input = document.getElementById('user-input');
+  const text = input.value.trim();
+  if (!text) return;
+
+  input.value = '';
+  addMessage('user', text);
+  messages.push({ role: 'user', content: text });
+
+  const provider = document.getElementById('provider').value;
+  const apiKey = document.getElementById('api-key').value.trim();
+  const model = document.getElementById('model').value.trim();
+
+  isStreaming = true;
+  document.getElementById('send-btn').disabled = true;
+  addTypingIndicator();
+
+  try {
+    let reply;
+    if (provider === 'anthropic') {
+      reply = await callAnthropic(apiKey, model, messages);
+    } else {
+      reply = await callOpenAI(apiKey, model, messages);
+    }
+
+    removeTypingIndicator();
+    addMessage('assistant', reply);
+    messages.push({ role: 'assistant', content: reply });
+  } catch (err) {
+    removeTypingIndicator();
+    addMessage('system-msg', 'Error: ' + err.message);
+  }
+
+  isStreaming = false;
+  document.getElementById('send-btn').disabled = false;
+  document.getElementById('user-input').focus();
+}
+
+async function callAnthropic(apiKey, model, msgs) {
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({
+      model: model,
+      max_tokens: 2048,
+      system: SYSTEM_PROMPT,
+      messages: msgs,
+    }),
+  });
+
+  if (!resp.ok) {
+    const err = await resp.text();
+    throw new Error('Anthropic API error ' + resp.status + ': ' + err);
+  }
+
+  const data = await resp.json();
+  return data.content[0].text;
+}
+
+async function callOpenAI(apiKey, model, msgs) {
+  const openaiMsgs = [
+    { role: 'system', content: SYSTEM_PROMPT },
+    ...msgs,
+  ];
+
+  const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + apiKey,
+    },
+    body: JSON.stringify({
+      model: model,
+      max_tokens: 2048,
+      messages: openaiMsgs,
+    }),
+  });
+
+  if (!resp.ok) {
+    const err = await resp.text();
+    throw new Error('OpenAI API error ' + resp.status + ': ' + err);
+  }
+
+  const data = await resp.json();
+  return data.choices[0].message.content;
+}
+</script>
+</body>
+</html>
