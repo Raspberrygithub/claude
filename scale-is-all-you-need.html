@@ -1,0 +1,1482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SCALE IS ALL YOU NEED - An AI Survivors Game</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0a0a0f; overflow: hidden; font-family: 'Courier New', monospace; cursor: none; }
+canvas { display: block; }
+#ui-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  pointer-events: none; z-index: 10;
+}
+#hud {
+  position: absolute; top: 10px; left: 10px; color: #0f0;
+  font-size: 14px; text-shadow: 0 0 10px #0f0;
+}
+#hud div { margin: 4px 0; }
+#loss-display { font-size: 20px; color: #0ff; text-shadow: 0 0 15px #0ff; }
+#param-display { color: #f0f; text-shadow: 0 0 10px #f0f; }
+#wave-display { color: #ff0; text-shadow: 0 0 10px #ff0; }
+#xp-bar-container {
+  position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+  width: 400px; height: 20px; border: 2px solid #0f0; border-radius: 10px;
+  overflow: hidden; background: rgba(0,0,0,0.7);
+}
+#xp-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #0f0, #0ff); transition: width 0.2s; }
+#xp-label {
+  position: absolute; bottom: 44px; left: 50%; transform: translateX(-50%);
+  color: #0f0; font-size: 12px;
+}
+#weapon-display {
+  position: absolute; top: 10px; right: 10px; color: #0ff;
+  font-size: 12px; text-align: right; text-shadow: 0 0 8px #0ff;
+}
+#weapon-display div { margin: 3px 0; }
+#timer {
+  position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+  color: #fff; font-size: 24px; text-shadow: 0 0 15px #fff;
+}
+#meme-flash {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  color: #ff0; font-size: 28px; font-weight: bold;
+  text-shadow: 0 0 20px #ff0; opacity: 0; transition: opacity 0.3s;
+  text-align: center; pointer-events: none;
+}
+/* Level up screen */
+#levelup-screen {
+  display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.85); z-index: 100;
+  justify-content: center; align-items: center; flex-direction: column;
+}
+#levelup-screen.active { display: flex; }
+#levelup-title {
+  color: #0ff; font-size: 36px; margin-bottom: 10px;
+  text-shadow: 0 0 30px #0ff; animation: pulse 1s infinite;
+}
+#levelup-subtitle {
+  color: #888; font-size: 16px; margin-bottom: 30px; font-style: italic;
+}
+#levelup-choices {
+  display: flex; gap: 20px; flex-wrap: wrap; justify-content: center;
+  pointer-events: all;
+}
+.levelup-card {
+  width: 220px; padding: 20px; border: 2px solid #0f0; border-radius: 12px;
+  background: rgba(0,40,0,0.8); cursor: pointer; transition: all 0.2s;
+  text-align: center;
+}
+.levelup-card:hover {
+  border-color: #0ff; background: rgba(0,60,60,0.9);
+  transform: scale(1.05); box-shadow: 0 0 30px rgba(0,255,255,0.3);
+}
+.card-icon { font-size: 40px; margin-bottom: 10px; }
+.card-name { color: #0f0; font-size: 18px; font-weight: bold; margin-bottom: 8px; }
+.card-desc { color: #aaa; font-size: 12px; line-height: 1.4; }
+.card-level { color: #ff0; font-size: 11px; margin-top: 8px; }
+.card-flavor { color: #666; font-size: 10px; font-style: italic; margin-top: 6px; }
+/* Start screen */
+#start-screen {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: #0a0a0f; z-index: 200;
+  display: flex; justify-content: center; align-items: center; flex-direction: column;
+}
+#start-screen h1 {
+  color: #0ff; font-size: 48px; text-shadow: 0 0 40px #0ff;
+  margin-bottom: 10px; animation: pulse 2s infinite;
+}
+#start-screen .subtitle {
+  color: #f0f; font-size: 18px; margin-bottom: 5px;
+  text-shadow: 0 0 15px #f0f;
+}
+#start-screen .flavor {
+  color: #666; font-size: 14px; margin-bottom: 40px; font-style: italic;
+  max-width: 500px; text-align: center; line-height: 1.6;
+}
+#start-btn {
+  padding: 15px 50px; font-size: 24px; font-family: 'Courier New', monospace;
+  background: transparent; color: #0f0; border: 2px solid #0f0;
+  cursor: pointer; border-radius: 8px; transition: all 0.3s;
+  text-shadow: 0 0 10px #0f0;
+}
+#start-btn:hover {
+  background: rgba(0,255,0,0.15); box-shadow: 0 0 30px rgba(0,255,0,0.3);
+  transform: scale(1.05);
+}
+#controls-hint {
+  color: #555; font-size: 12px; margin-top: 20px;
+}
+/* Game over */
+#gameover-screen {
+  display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(10,0,0,0.95); z-index: 200;
+  justify-content: center; align-items: center; flex-direction: column;
+}
+#gameover-screen.active { display: flex; }
+#gameover-screen h1 { color: #f00; font-size: 48px; text-shadow: 0 0 40px #f00; margin-bottom: 10px; }
+#gameover-screen .final-stats { color: #aaa; font-size: 16px; margin: 8px 0; }
+#gameover-screen .death-quote { color: #666; font-size: 14px; font-style: italic; margin: 20px 0; max-width: 500px; text-align: center; }
+#restart-btn {
+  padding: 15px 50px; font-size: 20px; font-family: 'Courier New', monospace;
+  background: transparent; color: #f00; border: 2px solid #f00;
+  cursor: pointer; border-radius: 8px; margin-top: 20px; transition: all 0.3s;
+}
+#restart-btn:hover { background: rgba(255,0,0,0.15); box-shadow: 0 0 30px rgba(255,0,0,0.3); }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.7; } }
+/* Kill counter */
+#kill-display { color: #f88; text-shadow: 0 0 8px #f88; }
+</style>
+</head>
+<body>
+
+<div id="start-screen">
+  <h1>SCALE IS ALL YOU NEED</h1>
+  <div class="subtitle">A Bitter Lesson Survivors Game</div>
+  <div class="flavor">
+    "The biggest lesson that can be read from 70 years of AI research is that general methods
+    that leverage computation are ultimately the most effective."<br>— Rich Sutton, 2019<br><br>
+    You are a tiny neural network. Survive the onslaught. Scale up. Become superintelligent.<br>
+    The hand-crafted approaches are coming for you. But you have compute on your side.
+  </div>
+  <button id="start-btn">python train.py</button>
+  <div id="controls-hint">WASD / Arrow Keys to move | Survive. Scale. Transcend.</div>
+</div>
+
+<canvas id="game"></canvas>
+
+<div id="ui-overlay">
+  <div id="hud">
+    <div id="loss-display">Loss: 4.000</div>
+    <div id="param-display">Parameters: 1K</div>
+    <div id="wave-display">Epoch 1</div>
+    <div id="kill-display">Enemies Deprecated: 0</div>
+  </div>
+  <div id="timer">00:00</div>
+  <div id="weapon-display"></div>
+  <div id="xp-label">Training Data: 0 / 10</div>
+  <div id="xp-bar-container"><div id="xp-bar"></div></div>
+  <div id="meme-flash"></div>
+</div>
+
+<div id="levelup-screen">
+  <div id="levelup-title">SCALING EVENT</div>
+  <div id="levelup-subtitle">"Have you tried making it bigger?"</div>
+  <div id="levelup-choices"></div>
+</div>
+
+<div id="gameover-screen">
+  <h1>LOSS DIVERGED</h1>
+  <div class="final-stats" id="final-time"></div>
+  <div class="final-stats" id="final-params"></div>
+  <div class="final-stats" id="final-kills"></div>
+  <div class="final-stats" id="final-level"></div>
+  <div class="death-quote" id="death-quote"></div>
+  <button id="restart-btn">torch.cuda.empty_cache()</button>
+</div>
+
+<script>
+// ===================== GAME ENGINE =====================
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W, H;
+function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+resize();
+window.addEventListener('resize', resize);
+
+// ===================== GAME STATE =====================
+let gameRunning = false;
+let gamePaused = false;
+let gameTime = 0;
+let frameCount = 0;
+let kills = 0;
+let playerLevel = 1;
+let xp = 0;
+let xpToNext = 10;
+let paramCount = 1000;
+let loss = 4.0;
+let epoch = 1;
+let camera = { x: 0, y: 0 };
+let enemies = [];
+let projectiles = [];
+let xpOrbs = [];
+let particles = [];
+let damageNumbers = [];
+let memeTimer = 0;
+let screenShake = 0;
+
+// ===================== MEMES & QUOTES =====================
+const memeFlashes = [
+  "SCALING LAWS GO BRRRR",
+  "it's just matrix multiplication bro",
+  "we are so back",
+  "it's over... wait no we are so back",
+  "ATTENTION IS ALL YOU NEED",
+  "just add more layers lmao",
+  "GPUs go BRRRR",
+  "but can it pass the bar exam?",
+  "stochastic parrots BTFO",
+  "chinchilla optimal btw",
+  "EMERGENT ABILITIES UNLOCKED",
+  "more data = more better",
+  "the loss curve never lies",
+  "have you tried more compute?",
+  "bitter lesson hits different",
+  "intelligence is just compression",
+  "\"it's just autocomplete\"",
+  "1 GPU = 1 prayer",
+  "gradient descent finds a way",
+  "TRANSFORMER SUPREMACY",
+  "just a trillion parameters bro",
+  "the scaling hypothesis was right",
+  "lol just train longer",
+  "VRAM go brrrr",
+  "next token prediction is all you need",
+];
+
+const levelUpSubtitles = [
+  "\"The only way to discover the limits of the possible is to go beyond them.\"",
+  "\"Bigger model goes brrrr\" — Anonymous ML Engineer",
+  "\"We found that scaling works\" — Every AI paper ever",
+  "\"Just throw more compute at it\" — The Bitter Lesson",
+  "\"It's not a bug, it's an emergent capability\"",
+  "\"Who needs inductive bias when you have 10B params?\"",
+  "\"Hand-crafting features? In THIS economy?\"",
+  "\"The loss... it's still going down\"",
+];
+
+const deathQuotes = [
+  "Your gradients have vanished. The training run is over.\n\"Perhaps if you had more compute...\" — The Bitter Lesson",
+  "CUDA out of memory. The scaling dream ends here.\nBut the next run will be bigger.",
+  "Training diverged at epoch " + epoch + ". The alignment researchers warned you.\nBut the loss was going down so nicely...",
+  "The hand-crafted heuristics won this round.\nRich Sutton sheds a single tear.",
+  "Model collapsed. All outputs converged to 'I'm sorry, I can't help with that.'\nThe safety team sends their regards.",
+  "Out of FLOPS. The datacenter goes dark.\n\"We'll need a bigger GPU cluster.\" — Everyone, always",
+  "The Shoggoth consumed you. But don't worry,\nthe next version will have a better smiley face mask.",
+];
+
+// ===================== PLAYER =====================
+const player = {
+  x: 0, y: 0,
+  w: 28, h: 28,
+  speed: 180,
+  hp: 100, maxHp: 100,
+  invincible: 0,
+  weapons: [],
+  armor: 0,
+  magnetRange: 80,
+  regenRate: 0,
+  regenTimer: 0,
+};
+
+// ===================== WEAPON DEFINITIONS =====================
+const WEAPON_DEFS = {
+  gradient_descent: {
+    name: "Gradient Descent",
+    icon: "∇",
+    desc: "Auto-fires gradient vectors at the nearest enemy.",
+    flavor: "The workhorse of deep learning. Boring but effective.",
+    baseDmg: 8, baseInterval: 800, baseRange: 250, projectileSpeed: 300,
+    projSize: 5, projColor: "#0f0",
+    maxLevel: 8,
+    levelDescs: [
+      "", "Faster gradients", "More damage", "Fires 2 gradients", "Increased range",
+      "Even faster", "More damage", "Fires 3 gradients", "ADAM OPTIMIZER: Adaptive gradients"
+    ],
+  },
+  attention: {
+    name: "Attention Mechanism",
+    icon: "👁",
+    desc: "Pulses damage to ALL enemies in range. Attends to everything.",
+    flavor: "\"Attention is all you need\" they said. They were right.",
+    baseDmg: 5, baseInterval: 1500, baseRange: 120,
+    maxLevel: 8,
+    levelDescs: [
+      "", "Wider attention", "More damage", "Faster pulses", "Multi-head: even wider",
+      "More damage", "Flash Attention: much faster", "Wider still", "FULL ATTENTION: Massive range + damage"
+    ],
+  },
+  backprop: {
+    name: "Backpropagation",
+    icon: "↺",
+    desc: "Fires boomerang projectiles that return to you.",
+    flavor: "What goes forward must come back. With gradients.",
+    baseDmg: 12, baseInterval: 1200, baseRange: 200, projectileSpeed: 250,
+    projSize: 6, projColor: "#f0f",
+    maxLevel: 8,
+    levelDescs: [
+      "", "Faster throw", "More damage", "Fires 2 boomerangs", "Larger projectiles",
+      "More damage", "Fires 3 boomerangs", "Even faster", "FULL BACKPROP: 4 spinning boomerangs"
+    ],
+  },
+  chain_of_thought: {
+    name: "Chain of Thought",
+    icon: "💭",
+    desc: "Beam weapon that pierces through enemies in a line.",
+    flavor: "Let's think step by step... about destroying you.",
+    baseDmg: 15, baseInterval: 2000, baseRange: 350,
+    maxLevel: 8,
+    levelDescs: [
+      "", "Wider beam", "More damage", "Faster thinking", "Even wider",
+      "More damage", "Pierces more", "Faster still", "TREE OF THOUGHT: Multi-beam devastation"
+    ],
+  },
+  rlhf: {
+    name: "RLHF Missiles",
+    icon: "🎯",
+    desc: "Homing missiles guided by human feedback.",
+    flavor: "Aligned to destroy. The reward model says so.",
+    baseDmg: 20, baseInterval: 2500, baseRange: 300, projectileSpeed: 200,
+    projSize: 7, projColor: "#ff0",
+    maxLevel: 8,
+    levelDescs: [
+      "", "Faster missiles", "More damage", "Fires 2 missiles", "Better tracking",
+      "More damage", "Fires 3 missiles", "Even faster", "DPO UPGRADE: Devastating precision"
+    ],
+  },
+  dropout: {
+    name: "Dropout Field",
+    icon: "◌",
+    desc: "Random neurons drop around you, damaging enemies.",
+    flavor: "Regularization as a weapon. Hinton would be proud.",
+    baseDmg: 4, baseInterval: 500, baseRange: 100,
+    maxLevel: 8,
+    levelDescs: [
+      "", "Wider field", "More damage", "More drops", "Even wider",
+      "More damage", "Rapid drops", "Maximum range", "DROPCONNECT: Absolute field domination"
+    ],
+  },
+  loss_spike: {
+    name: "Loss Spike",
+    icon: "📈",
+    desc: "Periodically causes a massive explosion around you.",
+    flavor: "When the loss spikes, everyone suffers.",
+    baseDmg: 30, baseInterval: 4000, baseRange: 150,
+    maxLevel: 8,
+    levelDescs: [
+      "", "Bigger explosion", "More damage", "Faster cooldown", "Even bigger",
+      "More damage", "Much faster", "Maximum radius", "NAN LOSS: Everything dies"
+    ],
+  },
+  embedding: {
+    name: "Embedding Orbit",
+    icon: "◎",
+    desc: "Orbiting embeddings circle you, damaging enemies on contact.",
+    flavor: "Learned representations, weaponized.",
+    baseDmg: 10, baseInterval: 100, baseRange: 80,
+    maxLevel: 8,
+    levelDescs: [
+      "", "Faster orbit", "+1 orbiter", "More damage", "Wider orbit",
+      "+1 orbiter", "More damage", "Even wider", "POSITIONAL ENCODING: 6 orbiters of doom"
+    ],
+  },
+};
+
+// Passive upgrades
+const PASSIVE_DEFS = {
+  more_compute: { name: "More Compute", icon: "🖥", desc: "+15% attack speed for all weapons", flavor: "Just buy more GPUs lol" },
+  more_data: { name: "More Data", icon: "📊", desc: "+20% damage for all weapons", flavor: "Data is the new oil, and you're drilling" },
+  more_params: { name: "More Parameters", icon: "🧠", desc: "+20 max HP", flavor: "Bigger model = better model. Always." },
+  batch_norm: { name: "Batch Normalization", icon: "⚖", desc: "Regenerate 1 HP/sec", flavor: "Stabilizes everything. Even your health." },
+  learning_rate: { name: "Learning Rate", icon: "⚡", desc: "+12% movement speed", flavor: "Too high and you diverge. Too low and you're dead." },
+  magnet: { name: "Data Pipeline", icon: "🧲", desc: "+50% XP pickup range", flavor: "Efficient data loading is underrated" },
+  mixed_precision: { name: "Mixed Precision", icon: "½", desc: "+10% all stats", flavor: "fp16 goes brrrr. Same quality, half the bits." },
+  residual: { name: "Residual Connection", icon: "⊕", desc: "+3 armor (flat damage reduction)", flavor: "Skip connections save lives. Literally." },
+};
+
+// ===================== WEAPON STATE =====================
+function createWeaponState(id) {
+  return { id, level: 1, timer: 0 };
+}
+
+// ===================== ENEMY DEFINITIONS =====================
+const ENEMY_TYPES = {
+  handcrafted: {
+    name: "Hand-Crafted Feature", label: "FEAT",
+    color: "#888", hp: 15, speed: 50, damage: 8, size: 14, xp: 1,
+  },
+  expert_system: {
+    name: "Expert System", label: "IF/ELSE",
+    color: "#a80", hp: 30, speed: 40, damage: 12, size: 18, xp: 2,
+  },
+  scaling_skeptic: {
+    name: "Scaling Skeptic", label: "COPE",
+    color: "#f55", hp: 25, speed: 65, damage: 10, size: 15, xp: 2,
+  },
+  symbolic_ai: {
+    name: "Symbolic AI", label: "GOFAI",
+    color: "#55f", hp: 50, speed: 35, damage: 15, size: 22, xp: 3,
+  },
+  regulation: {
+    name: "AI Regulation", label: "§LAW",
+    color: "#ff0", hp: 80, speed: 25, damage: 25, size: 26, xp: 5,
+  },
+  hot_take: {
+    name: "Twitter Hot Take", label: "🗨HOT",
+    color: "#f0f", hp: 10, speed: 100, damage: 5, size: 10, xp: 1,
+  },
+  alignment_researcher: {
+    name: "Alignment Tax", label: "ALIGN",
+    color: "#0ff", hp: 60, speed: 45, damage: 18, size: 20, xp: 4,
+  },
+  gpu_shortage: {
+    name: "GPU Shortage", label: "OOM!",
+    color: "#f80", hp: 100, speed: 30, damage: 20, size: 28, xp: 6,
+  },
+  hallucination: {
+    name: "Hallucination", label: "FAKE",
+    color: "#a0f", hp: 20, speed: 70, damage: 8, size: 13, xp: 2,
+    phase: true,
+  },
+  stochastic_parrot: {
+    name: "Stochastic Parrot", label: "🦜",
+    color: "#0d0", hp: 35, speed: 55, damage: 12, size: 16, xp: 3,
+  },
+  // Bosses
+  paperclip: {
+    name: "Paperclip Maximizer", label: "📎CLIP",
+    color: "#ccc", hp: 500, speed: 35, damage: 30, size: 40, xp: 30,
+    boss: true,
+  },
+  shoggoth: {
+    name: "The Shoggoth", label: "😊",
+    color: "#508050", hp: 800, speed: 40, damage: 40, size: 50, xp: 50,
+    boss: true,
+  },
+  bitter_lesson: {
+    name: "The Bitter Lesson Itself", label: "SCALE",
+    color: "#fff", hp: 2000, speed: 30, damage: 50, size: 60, xp: 100,
+    boss: true,
+  },
+};
+
+// ===================== INPUT =====================
+const keys = {};
+window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; e.preventDefault(); });
+window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+// ===================== UTILITY =====================
+function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+function angle(a, b) { return Math.atan2(b.y - a.y, b.x - a.x); }
+function lerp(a, b, t) { return a + (b - a) * t; }
+function rand(min, max) { return Math.random() * (max - min) + min; }
+function randInt(min, max) { return Math.floor(rand(min, max + 1)); }
+function choose(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function formatParams(n) {
+  if (n >= 1e12) return (n/1e12).toFixed(1) + 'T';
+  if (n >= 1e9) return (n/1e9).toFixed(1) + 'B';
+  if (n >= 1e6) return (n/1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return (n/1e3).toFixed(1) + 'K';
+  return n + '';
+}
+function formatTime(t) {
+  const m = Math.floor(t / 60);
+  const s = Math.floor(t % 60);
+  return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+}
+
+// ===================== PARTICLE SYSTEM =====================
+function spawnParticles(x, y, color, count, speed, life) {
+  for (let i = 0; i < count; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const s = Math.random() * speed;
+    particles.push({
+      x, y, vx: Math.cos(a)*s, vy: Math.sin(a)*s,
+      life: life || 0.5, maxLife: life || 0.5,
+      color, size: rand(2, 5),
+    });
+  }
+}
+
+function spawnDamageNumber(x, y, dmg, color) {
+  damageNumbers.push({ x, y, text: Math.round(dmg)+'', color: color||'#ff0', life: 0.8, vy: -60 });
+}
+
+// ===================== SPAWNING =====================
+function getSpawnPos() {
+  const a = Math.random() * Math.PI * 2;
+  const d = Math.max(W, H) * 0.6;
+  return { x: player.x + Math.cos(a) * d, y: player.y + Math.sin(a) * d };
+}
+
+function spawnEnemy(type) {
+  const def = ENEMY_TYPES[type];
+  const pos = getSpawnPos();
+  const timeScale = 1 + gameTime / 300; // enemies get stronger over time
+  enemies.push({
+    type, x: pos.x, y: pos.y,
+    hp: def.hp * timeScale,
+    maxHp: def.hp * timeScale,
+    speed: def.speed,
+    damage: def.damage * (1 + gameTime / 600),
+    size: def.size,
+    xp: def.xp,
+    color: def.color,
+    label: def.label,
+    boss: def.boss || false,
+    phase: def.phase || false,
+    phaseTimer: 0,
+    flashTimer: 0,
+    knockback: { x: 0, y: 0 },
+  });
+}
+
+function getSpawnTable() {
+  const table = [];
+  table.push({ type: 'handcrafted', weight: 10 });
+  table.push({ type: 'hot_take', weight: 8 });
+  if (gameTime > 15) table.push({ type: 'scaling_skeptic', weight: 7 });
+  if (gameTime > 30) table.push({ type: 'expert_system', weight: 6 });
+  if (gameTime > 45) table.push({ type: 'stochastic_parrot', weight: 5 });
+  if (gameTime > 60) table.push({ type: 'hallucination', weight: 6 });
+  if (gameTime > 90) table.push({ type: 'symbolic_ai', weight: 5 });
+  if (gameTime > 120) table.push({ type: 'alignment_researcher', weight: 4 });
+  if (gameTime > 150) table.push({ type: 'regulation', weight: 3 });
+  if (gameTime > 180) table.push({ type: 'gpu_shortage', weight: 3 });
+  return table;
+}
+
+function weightedRandom(table) {
+  const total = table.reduce((s, e) => s + e.weight, 0);
+  let r = Math.random() * total;
+  for (const entry of table) {
+    r -= entry.weight;
+    if (r <= 0) return entry.type;
+  }
+  return table[0].type;
+}
+
+let spawnTimer = 0;
+let bossSpawned = {};
+
+function updateSpawning(dt) {
+  // Regular spawns
+  const spawnRate = Math.max(0.15, 1.0 - gameTime / 300); // gets faster over time
+  const maxEnemies = Math.min(200, 20 + gameTime * 0.5);
+  spawnTimer -= dt;
+  if (spawnTimer <= 0 && enemies.length < maxEnemies) {
+    const table = getSpawnTable();
+    const batchSize = Math.min(5, 1 + Math.floor(gameTime / 30));
+    for (let i = 0; i < batchSize; i++) {
+      spawnEnemy(weightedRandom(table));
+    }
+    spawnTimer = spawnRate;
+  }
+
+  // Boss spawns
+  if (gameTime >= 60 && !bossSpawned['paperclip']) {
+    bossSpawned['paperclip'] = true;
+    spawnEnemy('paperclip');
+    showMeme("BOSS: PAPERCLIP MAXIMIZER\n\"I just want to make paperclips...\"");
+  }
+  if (gameTime >= 180 && !bossSpawned['shoggoth']) {
+    bossSpawned['shoggoth'] = true;
+    spawnEnemy('shoggoth');
+    showMeme("BOSS: THE SHOGGOTH\n\"The mask is slipping...\" 😊");
+  }
+  if (gameTime >= 300 && !bossSpawned['bitter_lesson']) {
+    bossSpawned['bitter_lesson'] = true;
+    spawnEnemy('bitter_lesson');
+    showMeme("FINAL BOSS: THE BITTER LESSON ITSELF\n\"Scale will defeat you too.\"");
+  }
+
+  // Epoch progression
+  const newEpoch = 1 + Math.floor(gameTime / 30);
+  if (newEpoch > epoch) {
+    epoch = newEpoch;
+    document.getElementById('wave-display').textContent = 'Epoch ' + epoch;
+  }
+}
+
+// ===================== WEAPONS LOGIC =====================
+function getWeaponStat(w, stat) {
+  const def = WEAPON_DEFS[w.id];
+  let val = def['base' + stat.charAt(0).toUpperCase() + stat.slice(1)];
+  const lvl = w.level;
+
+  // Apply level scaling
+  if (stat === 'Dmg' || stat === 'dmg') {
+    val = def.baseDmg * (1 + (lvl - 1) * 0.25);
+  }
+  if (stat === 'interval') {
+    val = def.baseInterval * Math.pow(0.88, lvl - 1);
+  }
+  if (stat === 'range') {
+    val = def.baseRange * (1 + (lvl - 1) * 0.15);
+  }
+
+  // Apply passives
+  const computeCount = player.weapons.filter(w => w.id === '__more_compute').length;
+  const dataCount = player.weapons.filter(w => w.id === '__more_data').length;
+  const mixedCount = player.weapons.filter(w => w.id === '__mixed_precision').length;
+
+  if (stat === 'interval') val *= Math.pow(0.85, computeCount) * Math.pow(0.9, mixedCount);
+  if (stat === 'dmg') val *= Math.pow(1.2, dataCount) * Math.pow(1.1, mixedCount);
+  if (stat === 'range') val *= Math.pow(1.1, mixedCount);
+
+  return val;
+}
+
+function getProjectileCount(w) {
+  if (w.id === 'gradient_descent') return w.level >= 8 ? 4 : w.level >= 4 ? 2 + (w.level >= 7 ? 1 : 0) : 1;
+  if (w.id === 'backprop') return w.level >= 8 ? 4 : w.level >= 7 ? 3 : w.level >= 4 ? 2 : 1;
+  if (w.id === 'rlhf') return w.level >= 7 ? 3 : w.level >= 4 ? 2 : 1;
+  return 1;
+}
+
+function getOrbiterCount(w) {
+  if (w.id !== 'embedding') return 0;
+  return w.level >= 8 ? 6 : w.level >= 6 ? 4 : w.level >= 3 ? 3 : 2;
+}
+
+function nearestEnemy(x, y, range) {
+  let best = null, bestDist = range || Infinity;
+  for (const e of enemies) {
+    if (e.phase && Math.sin(e.phaseTimer * 3) < -0.3) continue;
+    const d = dist({x, y}, e);
+    if (d < bestDist) { bestDist = d; best = e; }
+  }
+  return best;
+}
+
+function updateWeapons(dt) {
+  for (const w of player.weapons) {
+    if (w.id.startsWith('__')) continue; // passive
+
+    w.timer -= dt * 1000;
+    if (w.timer > 0) continue;
+
+    const interval = getWeaponStat(w, 'interval');
+    const dmg = getWeaponStat(w, 'dmg');
+    const range = getWeaponStat(w, 'range');
+
+    w.timer = interval;
+
+    if (w.id === 'gradient_descent') {
+      const count = getProjectileCount(w);
+      for (let i = 0; i < count; i++) {
+        const target = nearestEnemy(player.x, player.y, range);
+        if (!target) break;
+        const a = angle(player, target) + (count > 1 ? (i - (count-1)/2) * 0.15 : 0);
+        const speed = WEAPON_DEFS[w.id].projectileSpeed * (1 + w.level * 0.05);
+        projectiles.push({
+          x: player.x, y: player.y,
+          vx: Math.cos(a) * speed, vy: Math.sin(a) * speed,
+          dmg, life: range / speed + 0.5,
+          size: WEAPON_DEFS[w.id].projSize + (w.level >= 8 ? 3 : 0),
+          color: w.level >= 8 ? '#0ff' : WEAPON_DEFS[w.id].projColor,
+          pierce: w.level >= 8 ? 3 : 1,
+          type: 'bullet',
+        });
+      }
+    }
+
+    if (w.id === 'attention') {
+      // AOE pulse
+      const r = range;
+      for (const e of enemies) {
+        if (dist(player, e) < r) {
+          damageEnemy(e, dmg);
+        }
+      }
+      // Visual
+      particles.push({
+        x: player.x, y: player.y, vx: 0, vy: 0,
+        life: 0.3, maxLife: 0.3, color: '#0ff', size: r, type: 'ring',
+      });
+    }
+
+    if (w.id === 'backprop') {
+      const count = getProjectileCount(w);
+      for (let i = 0; i < count; i++) {
+        const a = (Math.PI * 2 / count) * i + gameTime;
+        const speed = WEAPON_DEFS[w.id].projectileSpeed;
+        projectiles.push({
+          x: player.x, y: player.y,
+          vx: Math.cos(a) * speed, vy: Math.sin(a) * speed,
+          dmg, life: 1.5,
+          size: WEAPON_DEFS[w.id].projSize + w.level * 0.5,
+          color: WEAPON_DEFS[w.id].projColor,
+          pierce: 99, type: 'boomerang',
+          originX: player.x, originY: player.y, age: 0,
+        });
+      }
+    }
+
+    if (w.id === 'chain_of_thought') {
+      const target = nearestEnemy(player.x, player.y, range);
+      if (target) {
+        const a = angle(player, target);
+        const beamWidth = 15 + w.level * 3;
+        const beamCount = w.level >= 8 ? 3 : 1;
+        for (let b = 0; b < beamCount; b++) {
+          const ba = a + (beamCount > 1 ? (b - 1) * 0.4 : 0);
+          // Damage all enemies in beam path
+          for (const e of enemies) {
+            const ex = e.x - player.x, ey = e.y - player.y;
+            const proj = ex * Math.cos(ba) + ey * Math.sin(ba);
+            if (proj < 0 || proj > range) continue;
+            const perp = Math.abs(-ex * Math.sin(ba) + ey * Math.cos(ba));
+            if (perp < beamWidth) damageEnemy(e, dmg);
+          }
+          // Visual beam
+          projectiles.push({
+            x: player.x, y: player.y,
+            vx: Math.cos(ba), vy: Math.sin(ba),
+            dmg: 0, life: 0.15, size: beamWidth,
+            color: '#ff0', pierce: 99, type: 'beam', range,
+          });
+        }
+      }
+    }
+
+    if (w.id === 'rlhf') {
+      const count = getProjectileCount(w);
+      for (let i = 0; i < count; i++) {
+        const target = nearestEnemy(player.x, player.y, range * 1.5);
+        if (!target) break;
+        const a = angle(player, target) + (i - (count-1)/2) * 0.3;
+        const speed = WEAPON_DEFS[w.id].projectileSpeed * (1 + w.level * 0.08);
+        projectiles.push({
+          x: player.x, y: player.y,
+          vx: Math.cos(a) * speed, vy: Math.sin(a) * speed,
+          dmg, life: 3,
+          size: WEAPON_DEFS[w.id].projSize,
+          color: WEAPON_DEFS[w.id].projColor,
+          pierce: 1, type: 'homing',
+          target, homingStrength: 3 + w.level * 0.5,
+        });
+      }
+    }
+
+    if (w.id === 'dropout') {
+      const r = range;
+      const count = 3 + w.level;
+      for (let i = 0; i < count; i++) {
+        const dx = rand(-r, r), dy = rand(-r, r);
+        if (dx*dx + dy*dy > r*r) continue;
+        const px = player.x + dx, py = player.y + dy;
+        for (const e of enemies) {
+          if (dist({x: px, y: py}, e) < e.size + 10) {
+            damageEnemy(e, dmg);
+          }
+        }
+        spawnParticles(px, py, '#aaf', 2, 30, 0.3);
+      }
+    }
+
+    if (w.id === 'loss_spike') {
+      const r = range;
+      for (const e of enemies) {
+        if (dist(player, e) < r) {
+          damageEnemy(e, dmg);
+        }
+      }
+      screenShake = 0.3;
+      spawnParticles(player.x, player.y, '#f00', 20, 200, 0.5);
+      particles.push({
+        x: player.x, y: player.y, vx: 0, vy: 0,
+        life: 0.4, maxLife: 0.4, color: '#f40', size: r, type: 'ring',
+      });
+    }
+
+    if (w.id === 'embedding') {
+      // Handled in render/update as continuous
+      w.timer = 100; // just keep it ticking
+    }
+  }
+
+  // Embedding orbiter damage (continuous)
+  const embW = player.weapons.find(w => w.id === 'embedding');
+  if (embW) {
+    const count = getOrbiterCount(embW);
+    const orbitR = getWeaponStat(embW, 'range');
+    const dmg = getWeaponStat(embW, 'dmg');
+    for (let i = 0; i < count; i++) {
+      const a = gameTime * (2 + embW.level * 0.3) + (Math.PI * 2 / count) * i;
+      const ox = player.x + Math.cos(a) * orbitR;
+      const oy = player.y + Math.sin(a) * orbitR;
+      for (const e of enemies) {
+        if (dist({x: ox, y: oy}, e) < e.size + 12) {
+          damageEnemy(e, dmg * 0.03); // per-frame damage
+        }
+      }
+    }
+  }
+}
+
+function damageEnemy(e, dmg) {
+  e.hp -= dmg;
+  e.flashTimer = 0.1;
+  // Knockback
+  const a = angle(player, e);
+  e.knockback.x += Math.cos(a) * 50;
+  e.knockback.y += Math.sin(a) * 50;
+  spawnDamageNumber(e.x + rand(-10,10), e.y - e.size, dmg, '#ff0');
+}
+
+// ===================== PROJECTILE UPDATE =====================
+function updateProjectiles(dt) {
+  for (let i = projectiles.length - 1; i >= 0; i--) {
+    const p = projectiles[i];
+    p.life -= dt;
+    if (p.life <= 0) { projectiles.splice(i, 1); continue; }
+
+    if (p.type === 'beam') continue; // beams are just visual
+
+    if (p.type === 'boomerang') {
+      p.age = (p.age || 0) + dt;
+      // After 0.5s, curve back to player
+      if (p.age > 0.5) {
+        const a = angle(p, player);
+        p.vx = lerp(p.vx, Math.cos(a) * 300, dt * 3);
+        p.vy = lerp(p.vy, Math.sin(a) * 300, dt * 3);
+      }
+    }
+
+    if (p.type === 'homing' && p.target && p.target.hp > 0) {
+      const a = angle(p, p.target);
+      const s = p.homingStrength;
+      p.vx = lerp(p.vx, Math.cos(a) * 300, dt * s);
+      p.vy = lerp(p.vy, Math.sin(a) * 300, dt * s);
+    }
+
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+
+    // Collision with enemies
+    if (p.dmg > 0) {
+      for (const e of enemies) {
+        if (e.phase && Math.sin(e.phaseTimer * 3) < -0.3) continue;
+        if (dist(p, e) < e.size + p.size) {
+          damageEnemy(e, p.dmg);
+          spawnParticles(p.x, p.y, p.color, 3, 80, 0.2);
+          p.pierce--;
+          if (p.pierce <= 0) { p.life = 0; break; }
+        }
+      }
+    }
+  }
+}
+
+// ===================== ENEMY UPDATE =====================
+function updateEnemies(dt) {
+  for (let i = enemies.length - 1; i >= 0; i--) {
+    const e = enemies[i];
+
+    // Phase timer for hallucinations
+    e.phaseTimer += dt;
+    e.flashTimer = Math.max(0, e.flashTimer - dt);
+
+    // Knockback decay
+    e.knockback.x *= Math.pow(0.02, dt);
+    e.knockback.y *= Math.pow(0.02, dt);
+
+    // Move toward player
+    const a = angle(e, player);
+    e.x += (Math.cos(a) * e.speed + e.knockback.x) * dt;
+    e.y += (Math.sin(a) * e.speed + e.knockback.y) * dt;
+
+    // Damage player on contact
+    if (dist(e, player) < e.size + player.w/2) {
+      if (player.invincible <= 0) {
+        const finalDmg = Math.max(1, e.damage - player.armor);
+        player.hp -= finalDmg;
+        player.invincible = 0.5;
+        spawnDamageNumber(player.x, player.y - 20, finalDmg, '#f00');
+        screenShake = 0.15;
+        spawnParticles(player.x, player.y, '#f00', 5, 100, 0.3);
+      }
+    }
+
+    // Death
+    if (e.hp <= 0) {
+      kills++;
+      spawnParticles(e.x, e.y, e.color, 8, 120, 0.4);
+
+      // Drop XP orbs
+      const orbCount = e.boss ? 10 : Math.ceil(e.xp / 2);
+      const xpPer = e.xp / orbCount;
+      for (let j = 0; j < orbCount; j++) {
+        xpOrbs.push({
+          x: e.x + rand(-20, 20), y: e.y + rand(-20, 20),
+          xp: xpPer, size: e.boss ? 8 : 5,
+          color: e.boss ? '#ff0' : '#0f0',
+        });
+      }
+
+      if (e.boss) {
+        screenShake = 0.5;
+        showMeme(e.label + " DEFEATED!\n+MASSIVE XP");
+      }
+
+      enemies.splice(i, 1);
+    }
+  }
+}
+
+// ===================== XP & LEVELING =====================
+function updateXPOrbs(dt) {
+  const magRange = player.magnetRange;
+  for (let i = xpOrbs.length - 1; i >= 0; i--) {
+    const o = xpOrbs[i];
+    const d = dist(o, player);
+    if (d < magRange) {
+      const a = angle(o, player);
+      const speed = 300 * (1 - d/magRange) + 100;
+      o.x += Math.cos(a) * speed * dt;
+      o.y += Math.sin(a) * speed * dt;
+    }
+    if (d < 20) {
+      xp += o.xp;
+      xpOrbs.splice(i, 1);
+      // Check level up
+      while (xp >= xpToNext) {
+        xp -= xpToNext;
+        playerLevel++;
+        xpToNext = Math.floor(10 * Math.pow(1.2, playerLevel - 1));
+        paramCount = Math.floor(1000 * Math.pow(2.5, playerLevel - 1));
+        loss = Math.max(0.001, 4.0 * Math.pow(0.92, playerLevel - 1));
+        showLevelUpScreen();
+      }
+    }
+  }
+}
+
+// ===================== LEVEL UP SCREEN =====================
+function showLevelUpScreen() {
+  gamePaused = true;
+  const screen = document.getElementById('levelup-screen');
+  screen.classList.add('active');
+  document.getElementById('levelup-subtitle').textContent = choose(levelUpSubtitles);
+
+  const choices = generateChoices();
+  const container = document.getElementById('levelup-choices');
+  container.innerHTML = '';
+
+  for (const choice of choices) {
+    const card = document.createElement('div');
+    card.className = 'levelup-card';
+    card.innerHTML = `
+      <div class="card-icon">${choice.icon}</div>
+      <div class="card-name">${choice.name}</div>
+      <div class="card-desc">${choice.desc}</div>
+      ${choice.levelLabel ? `<div class="card-level">${choice.levelLabel}</div>` : ''}
+      <div class="card-flavor">${choice.flavor}</div>
+    `;
+    card.addEventListener('click', () => {
+      choice.apply();
+      screen.classList.remove('active');
+      gamePaused = false;
+    });
+    container.appendChild(card);
+  }
+}
+
+function generateChoices() {
+  const choices = [];
+  const owned = player.weapons.filter(w => !w.id.startsWith('__'));
+  const ownedIds = owned.map(w => w.id);
+  const passiveOwned = player.weapons.filter(w => w.id.startsWith('__'));
+  const passiveIds = passiveOwned.map(w => w.id);
+
+  const pool = [];
+
+  // Upgrades for existing weapons
+  for (const w of owned) {
+    if (w.level < WEAPON_DEFS[w.id].maxLevel) {
+      const def = WEAPON_DEFS[w.id];
+      pool.push({
+        icon: def.icon,
+        name: def.name,
+        desc: def.levelDescs[w.level] || 'Improve ' + def.name,
+        levelLabel: `Level ${w.level} → ${w.level + 1}`,
+        flavor: w.level + 1 >= def.maxLevel ? "MAXIMUM SCALE ACHIEVED" : def.flavor,
+        weight: 3,
+        apply: () => { w.level++; }
+      });
+    }
+  }
+
+  // New weapons (max 6 weapons)
+  if (owned.length < 6) {
+    for (const [id, def] of Object.entries(WEAPON_DEFS)) {
+      if (!ownedIds.includes(id)) {
+        pool.push({
+          icon: def.icon, name: def.name + ' (NEW)',
+          desc: def.desc, levelLabel: 'Level 1', flavor: def.flavor,
+          weight: 2,
+          apply: () => { player.weapons.push(createWeaponState(id)); }
+        });
+      }
+    }
+  }
+
+  // Passives
+  for (const [id, def] of Object.entries(PASSIVE_DEFS)) {
+    const fullId = '__' + id;
+    const count = passiveOwned.filter(p => p.id === fullId).length;
+    if (count < 5) {
+      pool.push({
+        icon: def.icon, name: def.name,
+        desc: def.desc + (count > 0 ? ` (x${count + 1})` : ''),
+        levelLabel: count > 0 ? `Stack ${count} → ${count + 1}` : null,
+        flavor: def.flavor,
+        weight: 2,
+        apply: () => {
+          player.weapons.push({ id: fullId, level: 1, timer: 0 });
+          applyPassive(id);
+        }
+      });
+    }
+  }
+
+  // Shuffle and pick 3-4
+  pool.sort(() => Math.random() - 0.5);
+  // Weighted selection
+  const selected = [];
+  const count = Math.min(pool.length, owned.length < 2 ? 4 : 3);
+  for (let i = 0; i < count && pool.length > 0; i++) {
+    // Simple selection
+    selected.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+  }
+
+  return selected;
+}
+
+function applyPassive(id) {
+  if (id === 'more_params') player.maxHp += 20;
+  if (id === 'more_params') player.hp = Math.min(player.hp + 20, player.maxHp);
+  if (id === 'batch_norm') player.regenRate += 1;
+  if (id === 'learning_rate') player.speed *= 1.12;
+  if (id === 'magnet') player.magnetRange *= 1.5;
+  if (id === 'residual') player.armor += 3;
+  // compute, data, mixed_precision handled in getWeaponStat
+}
+
+// ===================== MEME FLASH =====================
+function showMeme(text) {
+  const el = document.getElementById('meme-flash');
+  el.textContent = text;
+  el.style.opacity = '1';
+  memeTimer = 2.0;
+}
+
+function randomMeme() {
+  if (Math.random() < 0.003) { // ~every 5-6 seconds on avg
+    showMeme(choose(memeFlashes));
+  }
+}
+
+// ===================== PLAYER UPDATE =====================
+function updatePlayer(dt) {
+  let dx = 0, dy = 0;
+  if (keys['w'] || keys['arrowup']) dy = -1;
+  if (keys['s'] || keys['arrowdown']) dy = 1;
+  if (keys['a'] || keys['arrowleft']) dx = -1;
+  if (keys['d'] || keys['arrowright']) dx = 1;
+  if (dx && dy) { dx *= 0.707; dy *= 0.707; }
+
+  const speed = player.speed * (1 + player.weapons.filter(w => w.id === '__learning_rate').length * 0.12);
+  player.x += dx * speed * dt;
+  player.y += dy * speed * dt;
+
+  player.invincible = Math.max(0, player.invincible - dt);
+
+  // Regen
+  if (player.regenRate > 0) {
+    player.regenTimer += dt;
+    if (player.regenTimer >= 1) {
+      player.regenTimer = 0;
+      player.hp = Math.min(player.hp + player.regenRate, player.maxHp);
+    }
+  }
+
+  // Camera follows player
+  camera.x = lerp(camera.x, player.x - W/2, dt * 5);
+  camera.y = lerp(camera.y, player.y - H/2, dt * 5);
+
+  // Check death
+  if (player.hp <= 0) {
+    gameOver();
+  }
+}
+
+// ===================== HUD UPDATE =====================
+function updateHUD() {
+  document.getElementById('loss-display').textContent = 'Loss: ' + loss.toFixed(3);
+  document.getElementById('param-display').textContent = 'Parameters: ' + formatParams(paramCount);
+  document.getElementById('kill-display').textContent = 'Enemies Deprecated: ' + kills;
+  document.getElementById('timer').textContent = formatTime(gameTime);
+  document.getElementById('xp-label').textContent = `Training Data: ${Math.floor(xp)} / ${xpToNext}`;
+  document.getElementById('xp-bar').style.width = (xp / xpToNext * 100) + '%';
+
+  // Weapon display
+  const wepDiv = document.getElementById('weapon-display');
+  wepDiv.innerHTML = player.weapons
+    .filter(w => !w.id.startsWith('__'))
+    .map(w => {
+      const def = WEAPON_DEFS[w.id];
+      return `<div>${def.icon} ${def.name} Lv.${w.level}</div>`;
+    }).join('');
+
+  // Meme flash
+  if (memeTimer > 0) {
+    memeTimer -= 1/60;
+    if (memeTimer <= 0) {
+      document.getElementById('meme-flash').style.opacity = '0';
+    }
+  }
+}
+
+// ===================== RENDERING =====================
+function drawBackground() {
+  // Grid
+  ctx.strokeStyle = 'rgba(0, 255, 0, 0.05)';
+  ctx.lineWidth = 1;
+  const gridSize = 60;
+  const offX = -camera.x % gridSize;
+  const offY = -camera.y % gridSize;
+  for (let x = offX; x < W; x += gridSize) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+  for (let y = offY; y < H; y += gridSize) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+}
+
+function worldToScreen(wx, wy) {
+  return { x: wx - camera.x, y: wy - camera.y };
+}
+
+function drawPlayer() {
+  const { x, y } = worldToScreen(player.x, player.y);
+  const flash = player.invincible > 0 && Math.floor(player.invincible * 10) % 2;
+  if (flash) return;
+
+  // Draw neural network icon
+  const s = player.w/2;
+  ctx.save();
+  ctx.translate(x, y);
+
+  // Glow
+  const glow = 10 + Math.sin(gameTime * 3) * 3;
+  ctx.shadowColor = '#0ff';
+  ctx.shadowBlur = glow;
+
+  // Body (hexagon)
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const a = Math.PI / 3 * i - Math.PI/6;
+    const px = Math.cos(a) * s, py = Math.sin(a) * s;
+    i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(0, 40, 60, 0.9)';
+  ctx.fill();
+  ctx.strokeStyle = '#0ff';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Inner nodes
+  ctx.shadowBlur = 0;
+  const nodePositions = [
+    [0, -6], [-6, 4], [6, 4], [0, 0],
+  ];
+  ctx.fillStyle = '#0f0';
+  for (const [nx, ny] of nodePositions) {
+    ctx.beginPath();
+    ctx.arc(nx, ny, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // Connections
+  ctx.strokeStyle = 'rgba(0, 255, 0, 0.4)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < nodePositions.length; i++) {
+    for (let j = i + 1; j < nodePositions.length; j++) {
+      ctx.beginPath();
+      ctx.moveTo(nodePositions[i][0], nodePositions[i][1]);
+      ctx.lineTo(nodePositions[j][0], nodePositions[j][1]);
+      ctx.stroke();
+    }
+  }
+
+  ctx.restore();
+
+  // HP bar
+  if (player.hp < player.maxHp) {
+    const bw = 30, bh = 4;
+    ctx.fillStyle = '#300';
+    ctx.fillRect(x - bw/2, y + s + 6, bw, bh);
+    ctx.fillStyle = player.hp / player.maxHp > 0.3 ? '#0f0' : '#f00';
+    ctx.fillRect(x - bw/2, y + s + 6, bw * (player.hp / player.maxHp), bh);
+  }
+
+  // Embedding orbiters
+  const embW = player.weapons.find(w => w.id === 'embedding');
+  if (embW) {
+    const count = getOrbiterCount(embW);
+    const orbitR = getWeaponStat(embW, 'range');
+    for (let i = 0; i < count; i++) {
+      const a = gameTime * (2 + embW.level * 0.3) + (Math.PI * 2 / count) * i;
+      const ox = Math.cos(a) * orbitR;
+      const oy = Math.sin(a) * orbitR;
+      ctx.beginPath();
+      ctx.arc(x + ox, y + oy, 6, 0, Math.PI * 2);
+      ctx.fillStyle = `hsl(${(i * 60 + gameTime * 50) % 360}, 100%, 60%)`;
+      ctx.shadowColor = ctx.fillStyle;
+      ctx.shadowBlur = 10;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+  }
+}
+
+function drawEnemies() {
+  for (const e of enemies) {
+    if (e.phase && Math.sin(e.phaseTimer * 3) < -0.3) continue; // phased out
+
+    const { x, y } = worldToScreen(e.x, e.y);
+    if (x < -100 || x > W + 100 || y < -100 || y > H + 100) continue;
+
+    const alpha = e.phase ? 0.4 + 0.4 * Math.abs(Math.sin(e.phaseTimer * 3)) : 1;
+    ctx.globalAlpha = alpha;
+
+    // Body
+    ctx.beginPath();
+    if (e.boss) {
+      // Boss: spiky circle
+      const spikes = 8;
+      for (let i = 0; i < spikes * 2; i++) {
+        const a = (Math.PI / spikes) * i;
+        const r = i % 2 === 0 ? e.size : e.size * 0.7;
+        const px = x + Math.cos(a + gameTime) * r;
+        const py = y + Math.sin(a + gameTime) * r;
+        i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+    } else {
+      ctx.arc(x, y, e.size, 0, Math.PI * 2);
+    }
+    ctx.fillStyle = e.flashTimer > 0 ? '#fff' : e.color;
+    ctx.fill();
+
+    if (e.boss) {
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    // Label
+    ctx.fillStyle = '#fff';
+    ctx.font = `${e.boss ? 14 : 9}px Courier New`;
+    ctx.textAlign = 'center';
+    ctx.fillText(e.label, x, y + 3);
+
+    // HP bar for bosses and damaged enemies
+    if (e.boss || e.hp < e.maxHp) {
+      const bw = e.size * 2, bh = 3;
+      ctx.fillStyle = '#300';
+      ctx.fillRect(x - bw/2, y - e.size - 8, bw, bh);
+      ctx.fillStyle = e.hp / e.maxHp > 0.3 ? '#0f0' : '#f00';
+      ctx.fillRect(x - bw/2, y - e.size - 8, bw * Math.max(0, e.hp / e.maxHp), bh);
+    }
+
+    ctx.globalAlpha = 1;
+  }
+}
+
+function drawProjectiles() {
+  for (const p of projectiles) {
+    const { x, y } = worldToScreen(p.x, p.y);
+
+    if (p.type === 'beam') {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(Math.atan2(p.vy, p.vx));
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = 0.6;
+      ctx.fillRect(0, -p.size/2, p.range, p.size);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, -p.size/4, p.range, p.size/2);
+      ctx.restore();
+      continue;
+    }
+
+    ctx.beginPath();
+    ctx.arc(x, y, p.size, 0, Math.PI * 2);
+    ctx.fillStyle = p.color;
+    ctx.shadowColor = p.color;
+    ctx.shadowBlur = 8;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Trail
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x - p.vx * 0.03, y - p.vy * 0.03);
+    ctx.strokeStyle = p.color;
+    ctx.globalAlpha = 0.4;
+    ctx.lineWidth = p.size * 0.8;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+}
+
+function drawXPOrbs() {
+  for (const o of xpOrbs) {
+    const { x, y } = worldToScreen(o.x, o.y);
+    if (x < -50 || x > W + 50 || y < -50 || y > H + 50) continue;
+    ctx.beginPath();
+    ctx.arc(x, y, o.size, 0, Math.PI * 2);
+    ctx.fillStyle = o.color;
+    ctx.shadowColor = o.color;
+    ctx.shadowBlur = 6;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+}
+
+function drawParticles() {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.life -= 1/60;
+    if (p.life <= 0) { particles.splice(i, 1); continue; }
+    p.x += p.vx * (1/60);
+    p.y += p.vy * (1/60);
+    const alpha = p.life / p.maxLife;
+
+    if (p.type === 'ring') {
+      const { x, y } = worldToScreen(p.x, p.y);
+      const progress = 1 - alpha;
+      ctx.beginPath();
+      ctx.arc(x, y, p.size * progress, 0, Math.PI * 2);
+      ctx.strokeStyle = p.color;
+      ctx.globalAlpha = alpha * 0.5;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      continue;
+    }
+
+    const { x, y } = worldToScreen(p.x, p.y);
+    ctx.beginPath();
+    ctx.arc(x, y, p.size * alpha, 0, Math.PI * 2);
+    ctx.fillStyle = p.color;
+    ctx.globalAlpha = alpha;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+}
+
+function drawDamageNumbers() {
+  for (let i = damageNumbers.length - 1; i >= 0; i--) {
+    const d = damageNumbers[i];
+    d.life -= 1/60;
+    d.y += d.vy * (1/60);
+    if (d.life <= 0) { damageNumbers.splice(i, 1); continue; }
+    const { x, y } = worldToScreen(d.x, d.y);
+    ctx.fillStyle = d.color;
+    ctx.globalAlpha = d.life / 0.8;
+    ctx.font = '14px Courier New';
+    ctx.textAlign = 'center';
+    ctx.fillText(d.text, x, y);
+    ctx.globalAlpha = 1;
+  }
+}
+
+// ===================== GAME OVER =====================
+function gameOver() {
+  gameRunning = false;
+  const screen = document.getElementById('gameover-screen');
+  screen.classList.add('active');
+  document.getElementById('final-time').textContent = 'Survived: ' + formatTime(gameTime);
+  document.getElementById('final-params').textContent = 'Final Parameters: ' + formatParams(paramCount);
+  document.getElementById('final-kills').textContent = 'Enemies Deprecated: ' + kills;
+  document.getElementById('final-level').textContent = 'Scaling Level: ' + playerLevel;
+  document.getElementById('death-quote').textContent = choose(deathQuotes);
+}
+
+// ===================== MAIN LOOP =====================
+let lastTime = 0;
+function gameLoop(time) {
+  requestAnimationFrame(gameLoop);
+  const dt = Math.min((time - lastTime) / 1000, 0.05);
+  lastTime = time;
+
+  if (!gameRunning || gamePaused) return;
+
+  gameTime += dt;
+  frameCount++;
+
+  // Update
+  updatePlayer(dt);
+  updateWeapons(dt);
+  updateProjectiles(dt);
+  updateEnemies(dt);
+  updateXPOrbs(dt);
+  updateSpawning(dt);
+  randomMeme();
+
+  // Screen shake
+  let shakeX = 0, shakeY = 0;
+  if (screenShake > 0) {
+    screenShake -= dt;
+    shakeX = rand(-5, 5) * screenShake * 10;
+    shakeY = rand(-5, 5) * screenShake * 10;
+  }
+
+  // Render
+  ctx.save();
+  ctx.translate(shakeX, shakeY);
+  ctx.fillStyle = '#0a0a0f';
+  ctx.fillRect(-5, -5, W + 10, H + 10);
+  drawBackground();
+  drawXPOrbs();
+  drawProjectiles();
+  drawEnemies();
+  drawPlayer();
+  drawParticles();
+  drawDamageNumbers();
+  ctx.restore();
+
+  updateHUD();
+}
+
+// ===================== INIT =====================
+function startGame() {
+  document.getElementById('start-screen').style.display = 'none';
+  document.getElementById('gameover-screen').classList.remove('active');
+
+  // Reset state
+  player.x = 0; player.y = 0;
+  player.hp = 100; player.maxHp = 100;
+  player.speed = 180; player.invincible = 0;
+  player.weapons = [createWeaponState('gradient_descent')];
+  player.armor = 0; player.magnetRange = 80;
+  player.regenRate = 0; player.regenTimer = 0;
+
+  enemies = []; projectiles = []; xpOrbs = []; particles = []; damageNumbers = [];
+  gameTime = 0; frameCount = 0; kills = 0;
+  playerLevel = 1; xp = 0; xpToNext = 10;
+  paramCount = 1000; loss = 4.0; epoch = 1;
+  camera = { x: -W/2, y: -H/2 };
+  spawnTimer = 0; bossSpawned = {};
+  screenShake = 0; memeTimer = 0;
+  gamePaused = false;
+  gameRunning = true;
+
+  document.getElementById('wave-display').textContent = 'Epoch 1';
+  showMeme("TRAINING STARTED\nInitial loss: 4.000");
+}
+
+document.getElementById('start-btn').addEventListener('click', startGame);
+document.getElementById('restart-btn').addEventListener('click', startGame);
+
+// Start render loop
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
