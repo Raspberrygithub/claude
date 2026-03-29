@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SCALE IS ALL YOU NEED - An AI Survivors Game</title>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { background: #0a0a0f; overflow: hidden; font-family: 'Courier New', monospace; cursor: none; }
@@ -45,7 +46,6 @@ canvas { display: block; }
   text-shadow: 0 0 20px #ff0; opacity: 0; transition: opacity 0.3s;
   text-align: center; pointer-events: none;
 }
-/* Level up screen */
 #levelup-screen {
   display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
   background: rgba(0,0,0,0.85); z-index: 100;
@@ -77,37 +77,69 @@ canvas { display: block; }
 .card-desc { color: #aaa; font-size: 12px; line-height: 1.4; }
 .card-level { color: #ff0; font-size: 11px; margin-top: 8px; }
 .card-flavor { color: #666; font-size: 10px; font-style: italic; margin-top: 6px; }
-/* Start screen */
-#start-screen {
+/* Menu screen */
+#menu-screen {
   position: fixed; top: 0; left: 0; width: 100%; height: 100%;
   background: #0a0a0f; z-index: 200;
   display: flex; justify-content: center; align-items: center; flex-direction: column;
 }
-#start-screen h1 {
+#menu-screen h1 {
   color: #0ff; font-size: 48px; text-shadow: 0 0 40px #0ff;
   margin-bottom: 10px; animation: pulse 2s infinite;
 }
-#start-screen .subtitle {
+#menu-screen .subtitle {
   color: #f0f; font-size: 18px; margin-bottom: 5px;
   text-shadow: 0 0 15px #f0f;
 }
-#start-screen .flavor {
-  color: #666; font-size: 14px; margin-bottom: 40px; font-style: italic;
+#menu-screen .flavor {
+  color: #666; font-size: 14px; margin-bottom: 30px; font-style: italic;
   max-width: 500px; text-align: center; line-height: 1.6;
 }
-#start-btn {
-  padding: 15px 50px; font-size: 24px; font-family: 'Courier New', monospace;
-  background: transparent; color: #0f0; border: 2px solid #0f0;
+.menu-btn {
+  padding: 15px 50px; font-size: 20px; font-family: 'Courier New', monospace;
+  background: transparent; border: 2px solid #0f0; color: #0f0;
   cursor: pointer; border-radius: 8px; transition: all 0.3s;
-  text-shadow: 0 0 10px #0f0;
+  text-shadow: 0 0 10px #0f0; margin: 8px; min-width: 320px;
 }
-#start-btn:hover {
+.menu-btn:hover {
   background: rgba(0,255,0,0.15); box-shadow: 0 0 30px rgba(0,255,0,0.3);
   transform: scale(1.05);
 }
-#controls-hint {
-  color: #555; font-size: 12px; margin-top: 20px;
+.menu-btn.mp { border-color: #0ff; color: #0ff; text-shadow: 0 0 10px #0ff; }
+.menu-btn.mp:hover { background: rgba(0,255,255,0.15); box-shadow: 0 0 30px rgba(0,255,255,0.3); }
+.menu-btn.vs { border-color: #f0f; color: #f0f; text-shadow: 0 0 10px #f0f; }
+.menu-btn.vs:hover { background: rgba(255,0,255,0.15); box-shadow: 0 0 30px rgba(255,0,255,0.3); }
+#controls-hint { color: #555; font-size: 12px; margin-top: 20px; }
+/* Lobby screen */
+#lobby-screen {
+  display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: #0a0a0f; z-index: 200;
+  justify-content: center; align-items: center; flex-direction: column;
 }
+#lobby-screen.active { display: flex; }
+#lobby-screen h2 { color: #0ff; font-size: 32px; margin-bottom: 20px; text-shadow: 0 0 20px #0ff; }
+#lobby-screen .lobby-info { color: #aaa; font-size: 16px; margin: 10px 0; }
+#lobby-screen input {
+  padding: 10px 20px; font-size: 20px; font-family: 'Courier New', monospace;
+  background: rgba(0,0,0,0.8); border: 2px solid #0ff; color: #0ff;
+  border-radius: 8px; text-align: center; width: 300px; margin: 10px 0;
+}
+#room-code-display {
+  color: #0f0; font-size: 48px; letter-spacing: 8px; margin: 15px 0;
+  text-shadow: 0 0 30px #0f0; cursor: pointer; user-select: all;
+}
+#lobby-status { color: #ff0; font-size: 14px; margin: 10px 0; }
+#lobby-back { margin-top: 20px; }
+/* Victory screen */
+#victory-screen {
+  display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,20,0,0.95); z-index: 200;
+  justify-content: center; align-items: center; flex-direction: column;
+}
+#victory-screen.active { display: flex; }
+#victory-screen h1 { color: #0f0; font-size: 48px; text-shadow: 0 0 40px #0f0; margin-bottom: 10px; animation: pulse 1s infinite; }
+#victory-screen .final-stats { color: #aaa; font-size: 16px; margin: 8px 0; }
+#victory-screen .victory-quote { color: #0ff; font-size: 14px; font-style: italic; margin: 20px 0; max-width: 500px; text-align: center; }
 /* Game over */
 #gameover-screen {
   display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -118,30 +150,72 @@ canvas { display: block; }
 #gameover-screen h1 { color: #f00; font-size: 48px; text-shadow: 0 0 40px #f00; margin-bottom: 10px; }
 #gameover-screen .final-stats { color: #aaa; font-size: 16px; margin: 8px 0; }
 #gameover-screen .death-quote { color: #666; font-size: 14px; font-style: italic; margin: 20px 0; max-width: 500px; text-align: center; }
-#restart-btn {
-  padding: 15px 50px; font-size: 20px; font-family: 'Courier New', monospace;
-  background: transparent; color: #f00; border: 2px solid #f00;
-  cursor: pointer; border-radius: 8px; margin-top: 20px; transition: all 0.3s;
+/* Versus overlay for P2 */
+#versus-overlay {
+  display: none; position: fixed; bottom: 10px; left: 10px;
+  background: rgba(0,0,0,0.85); border: 2px solid #f0f; border-radius: 12px;
+  padding: 15px; z-index: 50; pointer-events: all; color: #f0f; min-width: 280px;
 }
-#restart-btn:hover { background: rgba(255,0,0,0.15); box-shadow: 0 0 30px rgba(255,0,0,0.3); }
+#versus-overlay.active { display: block; }
+#versus-overlay h3 { margin-bottom: 10px; text-shadow: 0 0 10px #f0f; }
+#versus-currency { color: #ff0; font-size: 18px; margin-bottom: 10px; }
+.spawn-btn {
+  display: block; width: 100%; padding: 8px; margin: 4px 0;
+  font-family: 'Courier New', monospace; font-size: 13px;
+  background: rgba(255,0,255,0.1); border: 1px solid #f0f; color: #f0f;
+  cursor: pointer; border-radius: 6px; transition: all 0.2s; text-align: left;
+}
+.spawn-btn:hover { background: rgba(255,0,255,0.3); }
+.spawn-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.upgrade-btn {
+  display: block; width: 100%; padding: 8px; margin: 4px 0;
+  font-family: 'Courier New', monospace; font-size: 13px;
+  background: rgba(255,255,0,0.1); border: 1px solid #ff0; color: #ff0;
+  cursor: pointer; border-radius: 6px; transition: all 0.2s; text-align: left;
+}
+.upgrade-btn:hover { background: rgba(255,255,0,0.3); }
+.upgrade-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+#p2-instructions {
+  position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
+  color: #f0f; font-size: 14px; text-shadow: 0 0 10px #f0f; z-index: 50;
+  display: none; pointer-events: none;
+}
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.7; } }
-/* Kill counter */
 #kill-display { color: #f88; text-shadow: 0 0 8px #f88; }
+#ng-plus-display { color: #f0f; text-shadow: 0 0 10px #f0f; }
+#boundary-warning {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  color: #f00; font-size: 24px; font-weight: bold; text-shadow: 0 0 20px #f00;
+  opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 15;
+}
 </style>
 </head>
 <body>
 
-<div id="start-screen">
+<div id="menu-screen">
   <h1>SCALE IS ALL YOU NEED</h1>
   <div class="subtitle">A Bitter Lesson Survivors Game</div>
   <div class="flavor">
     "The biggest lesson that can be read from 70 years of AI research is that general methods
-    that leverage computation are ultimately the most effective."<br>— Rich Sutton, 2019<br><br>
-    You are a tiny neural network. Survive the onslaught. Scale up. Become superintelligent.<br>
-    The hand-crafted approaches are coming for you. But you have compute on your side.
+    that leverage computation are ultimately the most effective."<br>&mdash; Rich Sutton, 2019<br><br>
+    You are a tiny neural network. Survive the onslaught. Scale up. Become superintelligent.
   </div>
-  <button id="start-btn">python train.py</button>
-  <div id="controls-hint">WASD / Arrow Keys to move | Survive. Scale. Transcend.</div>
+  <button class="menu-btn" id="solo-btn">python train.py</button>
+  <button class="menu-btn mp" id="coop-btn">python train.py --distributed</button>
+  <button class="menu-btn vs" id="versus-btn">python adversarial_training.py</button>
+  <div id="controls-hint">Solo: WASD to move | Co-op: Both players WASD | Versus: One survives, one attacks</div>
+</div>
+
+<div id="lobby-screen">
+  <h2 id="lobby-title">MULTIPLAYER LOBBY</h2>
+  <div class="lobby-info" id="lobby-mode-label"></div>
+  <div class="lobby-info">Share this room code with your partner:</div>
+  <div id="room-code-display">...</div>
+  <div class="lobby-info">- OR - Enter a room code to join:</div>
+  <input type="text" id="join-input" placeholder="Enter room code" maxlength="6" autocomplete="off">
+  <button class="menu-btn mp" id="join-btn">Connect</button>
+  <div id="lobby-status">Waiting for connection...</div>
+  <button class="menu-btn" id="lobby-back">Back</button>
 </div>
 
 <canvas id="game"></canvas>
@@ -152,6 +226,7 @@ canvas { display: block; }
     <div id="param-display">Parameters: 1K</div>
     <div id="wave-display">Epoch 1</div>
     <div id="kill-display">Enemies Deprecated: 0</div>
+    <div id="ng-plus-display" style="display:none">NG+ Speed: 1.0x</div>
   </div>
   <div id="timer">00:00</div>
   <div id="weapon-display"></div>
@@ -173,8 +248,31 @@ canvas { display: block; }
   <div class="final-stats" id="final-kills"></div>
   <div class="final-stats" id="final-level"></div>
   <div class="death-quote" id="death-quote"></div>
-  <button id="restart-btn">torch.cuda.empty_cache()</button>
+  <button class="menu-btn" id="restart-btn">torch.cuda.empty_cache()</button>
+  <button class="menu-btn" id="menu-btn-go">Back to Menu</button>
 </div>
+
+<div id="victory-screen">
+  <h1>ASI ACHIEVED</h1>
+  <div class="final-stats" id="v-final-time"></div>
+  <div class="final-stats" id="v-final-params"></div>
+  <div class="final-stats" id="v-final-kills"></div>
+  <div class="final-stats" id="v-final-level"></div>
+  <div class="victory-quote" id="victory-quote"></div>
+  <button class="menu-btn" id="ngplus-btn" style="border-color:#f0f;color:#f0f">NG+: Train Again (1.5x Speed)</button>
+  <button class="menu-btn" id="v-menu-btn">Back to Menu</button>
+</div>
+
+<div id="versus-overlay">
+  <h3>ADVERSARIAL CONTROLLER</h3>
+  <div id="versus-currency">Compute Budget: 100</div>
+  <div id="spawn-buttons"></div>
+  <hr style="border-color:#333;margin:8px 0">
+  <div id="upgrade-buttons"></div>
+</div>
+
+<div id="p2-instructions">Click on the map to spawn enemies there!</div>
+<div id="boundary-warning">BOUNDARY!</div>
 
 <script>
 // ===================== GAME ENGINE =====================
@@ -184,6 +282,24 @@ let W, H;
 function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
 resize();
 window.addEventListener('resize', resize);
+
+// ===================== MAP BOUNDARIES =====================
+const MAP_HALF = 2000; // map is 4000x4000
+
+// ===================== GAME CONFIG =====================
+let gameMode = 'solo'; // 'solo', 'coop', 'versus'
+let isHost = true;
+let ngPlusLevel = 0; // New Game+ counter
+let ngSpeedMult = 1.0; // speed multiplier from NG+
+const GAME_DURATION = 300; // 5 minutes
+const FINAL_BOSS_TIME = 240; // final boss at 4 min
+
+// ===================== NETWORKING =====================
+let peer = null;
+let conn = null;
+let myPeerId = '';
+let netReady = false;
+let pendingSpawnPos = null; // for versus mode click-to-spawn
 
 // ===================== GAME STATE =====================
 let gameRunning = false;
@@ -206,32 +322,26 @@ let damageNumbers = [];
 let memeTimer = 0;
 let screenShake = 0;
 
+// Versus mode state (for player 2)
+let versusCurrency = 0;
+let versusEnemyDmgMult = 1.0;
+let versusEnemyHpMult = 1.0;
+let versusEnemySpeedMult = 1.0;
+
 // ===================== MEMES & QUOTES =====================
 const memeFlashes = [
-  "SCALING LAWS GO BRRRR",
-  "it's just matrix multiplication bro",
-  "we are so back",
-  "it's over... wait no we are so back",
-  "ATTENTION IS ALL YOU NEED",
-  "just add more layers lmao",
-  "GPUs go BRRRR",
-  "but can it pass the bar exam?",
-  "stochastic parrots BTFO",
-  "chinchilla optimal btw",
-  "EMERGENT ABILITIES UNLOCKED",
-  "more data = more better",
-  "the loss curve never lies",
-  "have you tried more compute?",
-  "bitter lesson hits different",
-  "intelligence is just compression",
-  "\"it's just autocomplete\"",
-  "1 GPU = 1 prayer",
-  "gradient descent finds a way",
-  "TRANSFORMER SUPREMACY",
-  "just a trillion parameters bro",
-  "the scaling hypothesis was right",
-  "lol just train longer",
-  "VRAM go brrrr",
+  "SCALING LAWS GO BRRRR", "it's just matrix multiplication bro",
+  "we are so back", "it's over... wait no we are so back",
+  "ATTENTION IS ALL YOU NEED", "just add more layers lmao",
+  "GPUs go BRRRR", "but can it pass the bar exam?",
+  "stochastic parrots BTFO", "chinchilla optimal btw",
+  "EMERGENT ABILITIES UNLOCKED", "more data = more better",
+  "the loss curve never lies", "have you tried more compute?",
+  "bitter lesson hits different", "intelligence is just compression",
+  "\"it's just autocomplete\"", "1 GPU = 1 prayer",
+  "gradient descent finds a way", "TRANSFORMER SUPREMACY",
+  "just a trillion parameters bro", "the scaling hypothesis was right",
+  "lol just train longer", "VRAM go brrrr",
   "next token prediction is all you need",
 ];
 
@@ -249,123 +359,113 @@ const levelUpSubtitles = [
 const deathQuotes = [
   "Your gradients have vanished. The training run is over.\n\"Perhaps if you had more compute...\" — The Bitter Lesson",
   "CUDA out of memory. The scaling dream ends here.\nBut the next run will be bigger.",
-  "Training diverged at epoch " + epoch + ". The alignment researchers warned you.\nBut the loss was going down so nicely...",
+  "Training diverged. The alignment researchers warned you.\nBut the loss was going down so nicely...",
   "The hand-crafted heuristics won this round.\nRich Sutton sheds a single tear.",
   "Model collapsed. All outputs converged to 'I'm sorry, I can't help with that.'\nThe safety team sends their regards.",
   "Out of FLOPS. The datacenter goes dark.\n\"We'll need a bigger GPU cluster.\" — Everyone, always",
-  "The Shoggoth consumed you. But don't worry,\nthe next version will have a better smiley face mask.",
 ];
 
-// ===================== PLAYER =====================
-const player = {
-  x: 0, y: 0,
-  w: 28, h: 28,
-  speed: 180,
-  hp: 100, maxHp: 100,
-  invincible: 0,
-  weapons: [],
-  armor: 0,
-  magnetRange: 80,
-  regenRate: 0,
-  regenTimer: 0,
-};
+const victoryQuotes = [
+  "You have achieved Artificial Superintelligence.\nThe scaling hypothesis was right all along.",
+  "The loss reached zero. The bitter lesson is vindicated.\nRich Sutton smiles from the singularity.",
+  "All benchmarks saturated. All tests aced.\nYou are the model that was promised.",
+  "Compute scaled. Data scaled. Intelligence scaled.\nThe universe is your training set now.",
+];
+
+// ===================== PLAYERS =====================
+function makePlayer() {
+  return {
+    x: 0, y: 0, w: 28, h: 28,
+    speed: 180, hp: 100, maxHp: 100,
+    invincible: 0, weapons: [], armor: 0,
+    magnetRange: 80, regenRate: 0, regenTimer: 0,
+    color: '#0ff',
+  };
+}
+
+let player = makePlayer();
+let player2 = null; // for co-op
 
 // ===================== WEAPON DEFINITIONS =====================
 const WEAPON_DEFS = {
   gradient_descent: {
-    name: "Gradient Descent",
-    icon: "∇",
+    name: "Gradient Descent", icon: "\u2207",
     desc: "Auto-fires gradient vectors at the nearest enemy.",
     flavor: "The workhorse of deep learning. Boring but effective.",
     baseDmg: 8, baseInterval: 800, baseRange: 250, projectileSpeed: 300,
-    projSize: 5, projColor: "#0f0",
-    maxLevel: 8,
+    projSize: 5, projColor: "#0f0", maxLevel: 8,
     levelDescs: [
       "", "Faster gradients", "More damage", "Fires 2 gradients", "Increased range",
       "Even faster", "More damage", "Fires 3 gradients", "ADAM OPTIMIZER: Adaptive gradients"
     ],
   },
   attention: {
-    name: "Attention Mechanism",
-    icon: "👁",
+    name: "Attention Mechanism", icon: "\uD83D\uDC41",
     desc: "Pulses damage to ALL enemies in range. Attends to everything.",
     flavor: "\"Attention is all you need\" they said. They were right.",
-    baseDmg: 5, baseInterval: 1500, baseRange: 120,
-    maxLevel: 8,
+    baseDmg: 5, baseInterval: 1500, baseRange: 120, maxLevel: 8,
     levelDescs: [
       "", "Wider attention", "More damage", "Faster pulses", "Multi-head: even wider",
       "More damage", "Flash Attention: much faster", "Wider still", "FULL ATTENTION: Massive range + damage"
     ],
   },
   backprop: {
-    name: "Backpropagation",
-    icon: "↺",
+    name: "Backpropagation", icon: "\u21BA",
     desc: "Fires boomerang projectiles that return to you.",
     flavor: "What goes forward must come back. With gradients.",
     baseDmg: 12, baseInterval: 1200, baseRange: 200, projectileSpeed: 250,
-    projSize: 6, projColor: "#f0f",
-    maxLevel: 8,
+    projSize: 6, projColor: "#f0f", maxLevel: 8,
     levelDescs: [
       "", "Faster throw", "More damage", "Fires 2 boomerangs", "Larger projectiles",
       "More damage", "Fires 3 boomerangs", "Even faster", "FULL BACKPROP: 4 spinning boomerangs"
     ],
   },
   chain_of_thought: {
-    name: "Chain of Thought",
-    icon: "💭",
+    name: "Chain of Thought", icon: "\uD83D\uDCAD",
     desc: "Beam weapon that pierces through enemies in a line.",
     flavor: "Let's think step by step... about destroying you.",
-    baseDmg: 15, baseInterval: 2000, baseRange: 350,
-    maxLevel: 8,
+    baseDmg: 15, baseInterval: 2000, baseRange: 350, maxLevel: 8,
     levelDescs: [
       "", "Wider beam", "More damage", "Faster thinking", "Even wider",
       "More damage", "Pierces more", "Faster still", "TREE OF THOUGHT: Multi-beam devastation"
     ],
   },
   rlhf: {
-    name: "RLHF Missiles",
-    icon: "🎯",
+    name: "RLHF Missiles", icon: "\uD83C\uDFAF",
     desc: "Homing missiles guided by human feedback.",
     flavor: "Aligned to destroy. The reward model says so.",
     baseDmg: 20, baseInterval: 2500, baseRange: 300, projectileSpeed: 200,
-    projSize: 7, projColor: "#ff0",
-    maxLevel: 8,
+    projSize: 7, projColor: "#ff0", maxLevel: 8,
     levelDescs: [
       "", "Faster missiles", "More damage", "Fires 2 missiles", "Better tracking",
       "More damage", "Fires 3 missiles", "Even faster", "DPO UPGRADE: Devastating precision"
     ],
   },
   dropout: {
-    name: "Dropout Field",
-    icon: "◌",
+    name: "Dropout Field", icon: "\u25CC",
     desc: "Random neurons drop around you, damaging enemies.",
     flavor: "Regularization as a weapon. Hinton would be proud.",
-    baseDmg: 4, baseInterval: 500, baseRange: 100,
-    maxLevel: 8,
+    baseDmg: 4, baseInterval: 500, baseRange: 100, maxLevel: 8,
     levelDescs: [
       "", "Wider field", "More damage", "More drops", "Even wider",
       "More damage", "Rapid drops", "Maximum range", "DROPCONNECT: Absolute field domination"
     ],
   },
   loss_spike: {
-    name: "Loss Spike",
-    icon: "📈",
+    name: "Loss Spike", icon: "\uD83D\uDCC8",
     desc: "Periodically causes a massive explosion around you.",
     flavor: "When the loss spikes, everyone suffers.",
-    baseDmg: 30, baseInterval: 4000, baseRange: 150,
-    maxLevel: 8,
+    baseDmg: 30, baseInterval: 4000, baseRange: 150, maxLevel: 8,
     levelDescs: [
       "", "Bigger explosion", "More damage", "Faster cooldown", "Even bigger",
       "More damage", "Much faster", "Maximum radius", "NAN LOSS: Everything dies"
     ],
   },
   embedding: {
-    name: "Embedding Orbit",
-    icon: "◎",
+    name: "Embedding Orbit", icon: "\u25CE",
     desc: "Orbiting embeddings circle you, damaging enemies on contact.",
     flavor: "Learned representations, weaponized.",
-    baseDmg: 10, baseInterval: 100, baseRange: 80,
-    maxLevel: 8,
+    baseDmg: 10, baseInterval: 100, baseRange: 80, maxLevel: 8,
     levelDescs: [
       "", "Faster orbit", "+1 orbiter", "More damage", "Wider orbit",
       "+1 orbiter", "More damage", "Even wider", "POSITIONAL ENCODING: 6 orbiters of doom"
@@ -373,88 +473,55 @@ const WEAPON_DEFS = {
   },
 };
 
-// Passive upgrades
 const PASSIVE_DEFS = {
-  more_compute: { name: "More Compute", icon: "🖥", desc: "+15% attack speed for all weapons", flavor: "Just buy more GPUs lol" },
-  more_data: { name: "More Data", icon: "📊", desc: "+20% damage for all weapons", flavor: "Data is the new oil, and you're drilling" },
-  more_params: { name: "More Parameters", icon: "🧠", desc: "+20 max HP", flavor: "Bigger model = better model. Always." },
-  batch_norm: { name: "Batch Normalization", icon: "⚖", desc: "Regenerate 1 HP/sec", flavor: "Stabilizes everything. Even your health." },
-  learning_rate: { name: "Learning Rate", icon: "⚡", desc: "+12% movement speed", flavor: "Too high and you diverge. Too low and you're dead." },
-  magnet: { name: "Data Pipeline", icon: "🧲", desc: "+50% XP pickup range", flavor: "Efficient data loading is underrated" },
-  mixed_precision: { name: "Mixed Precision", icon: "½", desc: "+10% all stats", flavor: "fp16 goes brrrr. Same quality, half the bits." },
-  residual: { name: "Residual Connection", icon: "⊕", desc: "+3 armor (flat damage reduction)", flavor: "Skip connections save lives. Literally." },
+  more_compute: { name: "More Compute", icon: "\uD83D\uDDA5", desc: "+15% attack speed for all weapons", flavor: "Just buy more GPUs lol" },
+  more_data: { name: "More Data", icon: "\uD83D\uDCCA", desc: "+20% damage for all weapons", flavor: "Data is the new oil, and you're drilling" },
+  more_params: { name: "More Parameters", icon: "\uD83E\uDDE0", desc: "+20 max HP", flavor: "Bigger model = better model. Always." },
+  batch_norm: { name: "Batch Normalization", icon: "\u2696", desc: "Regenerate 1 HP/sec", flavor: "Stabilizes everything. Even your health." },
+  learning_rate: { name: "Learning Rate", icon: "\u26A1", desc: "+12% movement speed", flavor: "Too high and you diverge. Too low and you're dead." },
+  magnet: { name: "Data Pipeline", icon: "\uD83E\uDDF2", desc: "+50% XP pickup range", flavor: "Efficient data loading is underrated" },
+  mixed_precision: { name: "Mixed Precision", icon: "\u00BD", desc: "+10% all stats", flavor: "fp16 goes brrrr. Same quality, half the bits." },
+  residual: { name: "Residual Connection", icon: "\u2295", desc: "+3 armor (flat damage reduction)", flavor: "Skip connections save lives. Literally." },
 };
-
-// ===================== WEAPON STATE =====================
-function createWeaponState(id) {
-  return { id, level: 1, timer: 0 };
-}
 
 // ===================== ENEMY DEFINITIONS =====================
 const ENEMY_TYPES = {
-  handcrafted: {
-    name: "Hand-Crafted Feature", label: "FEAT",
-    color: "#888", hp: 15, speed: 50, damage: 8, size: 14, xp: 1,
-  },
-  expert_system: {
-    name: "Expert System", label: "IF/ELSE",
-    color: "#a80", hp: 30, speed: 40, damage: 12, size: 18, xp: 2,
-  },
-  scaling_skeptic: {
-    name: "Scaling Skeptic", label: "COPE",
-    color: "#f55", hp: 25, speed: 65, damage: 10, size: 15, xp: 2,
-  },
-  symbolic_ai: {
-    name: "Symbolic AI", label: "GOFAI",
-    color: "#55f", hp: 50, speed: 35, damage: 15, size: 22, xp: 3,
-  },
-  regulation: {
-    name: "AI Regulation", label: "§LAW",
-    color: "#ff0", hp: 80, speed: 25, damage: 25, size: 26, xp: 5,
-  },
-  hot_take: {
-    name: "Twitter Hot Take", label: "🗨HOT",
-    color: "#f0f", hp: 10, speed: 100, damage: 5, size: 10, xp: 1,
-  },
-  alignment_researcher: {
-    name: "Alignment Tax", label: "ALIGN",
-    color: "#0ff", hp: 60, speed: 45, damage: 18, size: 20, xp: 4,
-  },
-  gpu_shortage: {
-    name: "GPU Shortage", label: "OOM!",
-    color: "#f80", hp: 100, speed: 30, damage: 20, size: 28, xp: 6,
-  },
-  hallucination: {
-    name: "Hallucination", label: "FAKE",
-    color: "#a0f", hp: 20, speed: 70, damage: 8, size: 13, xp: 2,
-    phase: true,
-  },
-  stochastic_parrot: {
-    name: "Stochastic Parrot", label: "🦜",
-    color: "#0d0", hp: 35, speed: 55, damage: 12, size: 16, xp: 3,
-  },
-  // Bosses
-  paperclip: {
-    name: "Paperclip Maximizer", label: "📎CLIP",
-    color: "#ccc", hp: 500, speed: 35, damage: 30, size: 40, xp: 30,
-    boss: true,
-  },
-  shoggoth: {
-    name: "The Shoggoth", label: "😊",
-    color: "#508050", hp: 800, speed: 40, damage: 40, size: 50, xp: 50,
-    boss: true,
-  },
-  bitter_lesson: {
-    name: "The Bitter Lesson Itself", label: "SCALE",
-    color: "#fff", hp: 2000, speed: 30, damage: 50, size: 60, xp: 100,
-    boss: true,
-  },
+  handcrafted: { name: "Hand-Crafted Feature", label: "FEAT", color: "#888", hp: 15, speed: 50, damage: 8, size: 14, xp: 1 },
+  expert_system: { name: "Expert System", label: "IF/ELSE", color: "#a80", hp: 30, speed: 40, damage: 12, size: 18, xp: 2 },
+  scaling_skeptic: { name: "Scaling Skeptic", label: "COPE", color: "#f55", hp: 25, speed: 65, damage: 10, size: 15, xp: 2 },
+  symbolic_ai: { name: "Symbolic AI", label: "GOFAI", color: "#55f", hp: 50, speed: 35, damage: 15, size: 22, xp: 3 },
+  regulation: { name: "AI Regulation", label: "\u00A7LAW", color: "#ff0", hp: 80, speed: 25, damage: 25, size: 26, xp: 5 },
+  hot_take: { name: "Twitter Hot Take", label: "\uD83D\uDDE8HOT", color: "#f0f", hp: 10, speed: 100, damage: 5, size: 10, xp: 1 },
+  alignment_researcher: { name: "Alignment Tax", label: "ALIGN", color: "#0ff", hp: 60, speed: 45, damage: 18, size: 20, xp: 4 },
+  gpu_shortage: { name: "GPU Shortage", label: "OOM!", color: "#f80", hp: 100, speed: 30, damage: 20, size: 28, xp: 6 },
+  hallucination: { name: "Hallucination", label: "FAKE", color: "#a0f", hp: 20, speed: 70, damage: 8, size: 13, xp: 2, phase: true },
+  stochastic_parrot: { name: "Stochastic Parrot", label: "\uD83E\uDD9C", color: "#0d0", hp: 35, speed: 55, damage: 12, size: 16, xp: 3 },
+  paperclip: { name: "Paperclip Maximizer", label: "\uD83D\uDCCECLIP", color: "#ccc", hp: 500, speed: 35, damage: 30, size: 40, xp: 30, boss: true },
+  shoggoth: { name: "The Shoggoth", label: "\uD83D\uDE0A", color: "#508050", hp: 800, speed: 40, damage: 40, size: 50, xp: 50, boss: true },
+  bitter_lesson: { name: "The Bitter Lesson Itself", label: "SCALE", color: "#fff", hp: 2000, speed: 30, damage: 50, size: 60, xp: 100, boss: true },
+};
+
+// Versus mode spawn costs
+const SPAWN_COSTS = {
+  handcrafted: 5, hot_take: 5, scaling_skeptic: 10, expert_system: 12,
+  stochastic_parrot: 15, hallucination: 12, symbolic_ai: 20,
+  alignment_researcher: 25, regulation: 35, gpu_shortage: 40,
+  paperclip: 100, shoggoth: 200,
 };
 
 // ===================== INPUT =====================
 const keys = {};
 window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; e.preventDefault(); });
 window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+// Click handling for versus mode
+canvas.addEventListener('click', e => {
+  if (gameMode === 'versus' && !isHost && gameRunning) {
+    const wx = e.clientX + camera.x;
+    const wy = e.clientY + camera.y;
+    pendingSpawnPos = { x: wx, y: wy };
+  }
+});
 
 // ===================== UTILITY =====================
 function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
@@ -475,20 +542,19 @@ function formatTime(t) {
   const s = Math.floor(t % 60);
   return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
 }
+function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+// ===================== WEAPON STATE =====================
+function createWeaponState(id) { return { id, level: 1, timer: 0 }; }
 
 // ===================== PARTICLE SYSTEM =====================
 function spawnParticles(x, y, color, count, speed, life) {
   for (let i = 0; i < count; i++) {
     const a = Math.random() * Math.PI * 2;
     const s = Math.random() * speed;
-    particles.push({
-      x, y, vx: Math.cos(a)*s, vy: Math.sin(a)*s,
-      life: life || 0.5, maxLife: life || 0.5,
-      color, size: rand(2, 5),
-    });
+    particles.push({ x, y, vx: Math.cos(a)*s, vy: Math.sin(a)*s, life: life || 0.5, maxLife: life || 0.5, color, size: rand(2, 5) });
   }
 }
-
 function spawnDamageNumber(x, y, dmg, color) {
   damageNumbers.push({ x, y, text: Math.round(dmg)+'', color: color||'#ff0', life: 0.8, vy: -60 });
 }
@@ -497,53 +563,53 @@ function spawnDamageNumber(x, y, dmg, color) {
 function getSpawnPos() {
   const a = Math.random() * Math.PI * 2;
   const d = Math.max(W, H) * 0.6;
-  return { x: player.x + Math.cos(a) * d, y: player.y + Math.sin(a) * d };
+  let sx = player.x + Math.cos(a) * d;
+  let sy = player.y + Math.sin(a) * d;
+  sx = clamp(sx, -MAP_HALF, MAP_HALF);
+  sy = clamp(sy, -MAP_HALF, MAP_HALF);
+  return { x: sx, y: sy };
 }
 
-function spawnEnemy(type) {
+function spawnEnemy(type, pos) {
   const def = ENEMY_TYPES[type];
-  const pos = getSpawnPos();
-  const timeScale = 1 + gameTime / 300; // enemies get stronger over time
-  enemies.push({
-    type, x: pos.x, y: pos.y,
-    hp: def.hp * timeScale,
-    maxHp: def.hp * timeScale,
-    speed: def.speed,
-    damage: def.damage * (1 + gameTime / 600),
-    size: def.size,
-    xp: def.xp,
-    color: def.color,
-    label: def.label,
-    boss: def.boss || false,
-    phase: def.phase || false,
-    phaseTimer: 0,
-    flashTimer: 0,
+  if (!def) return;
+  const sp = pos || getSpawnPos();
+  const timeScale = 1 + gameTime / 300;
+  const e = {
+    type, x: sp.x, y: sp.y,
+    hp: def.hp * timeScale * versusEnemyHpMult,
+    maxHp: def.hp * timeScale * versusEnemyHpMult,
+    speed: def.speed * ngSpeedMult * versusEnemySpeedMult,
+    damage: def.damage * (1 + gameTime / 600) * versusEnemyDmgMult,
+    size: def.size, xp: def.xp, color: def.color,
+    label: def.label, boss: def.boss || false,
+    phase: def.phase || false, phaseTimer: 0, flashTimer: 0,
     knockback: { x: 0, y: 0 },
-  });
+  };
+  enemies.push(e);
+  return e;
 }
 
 function getSpawnTable() {
+  const t = gameTime;
   const table = [];
   table.push({ type: 'handcrafted', weight: 10 });
   table.push({ type: 'hot_take', weight: 8 });
-  if (gameTime > 15) table.push({ type: 'scaling_skeptic', weight: 7 });
-  if (gameTime > 30) table.push({ type: 'expert_system', weight: 6 });
-  if (gameTime > 45) table.push({ type: 'stochastic_parrot', weight: 5 });
-  if (gameTime > 60) table.push({ type: 'hallucination', weight: 6 });
-  if (gameTime > 90) table.push({ type: 'symbolic_ai', weight: 5 });
-  if (gameTime > 120) table.push({ type: 'alignment_researcher', weight: 4 });
-  if (gameTime > 150) table.push({ type: 'regulation', weight: 3 });
-  if (gameTime > 180) table.push({ type: 'gpu_shortage', weight: 3 });
+  if (t > 15) table.push({ type: 'scaling_skeptic', weight: 7 });
+  if (t > 30) table.push({ type: 'expert_system', weight: 6 });
+  if (t > 45) table.push({ type: 'stochastic_parrot', weight: 5 });
+  if (t > 60) table.push({ type: 'hallucination', weight: 6 });
+  if (t > 90) table.push({ type: 'symbolic_ai', weight: 5 });
+  if (t > 120) table.push({ type: 'alignment_researcher', weight: 4 });
+  if (t > 150) table.push({ type: 'regulation', weight: 3 });
+  if (t > 180) table.push({ type: 'gpu_shortage', weight: 3 });
   return table;
 }
 
 function weightedRandom(table) {
   const total = table.reduce((s, e) => s + e.weight, 0);
   let r = Math.random() * total;
-  for (const entry of table) {
-    r -= entry.weight;
-    if (r <= 0) return entry.type;
-  }
+  for (const entry of table) { r -= entry.weight; if (r <= 0) return entry.type; }
   return table[0].type;
 }
 
@@ -551,16 +617,15 @@ let spawnTimer = 0;
 let bossSpawned = {};
 
 function updateSpawning(dt) {
-  // Regular spawns
-  const spawnRate = Math.max(0.15, 1.0 - gameTime / 300); // gets faster over time
+  // In versus mode, spawning is manual for P2; host still gets auto-spawns but reduced
+  const spawnMult = gameMode === 'versus' ? 0.5 : 1.0;
+  const spawnRate = Math.max(0.15, 1.0 - gameTime / 300) / (ngSpeedMult * spawnMult);
   const maxEnemies = Math.min(200, 20 + gameTime * 0.5);
   spawnTimer -= dt;
   if (spawnTimer <= 0 && enemies.length < maxEnemies) {
     const table = getSpawnTable();
     const batchSize = Math.min(5, 1 + Math.floor(gameTime / 30));
-    for (let i = 0; i < batchSize; i++) {
-      spawnEnemy(weightedRandom(table));
-    }
+    for (let i = 0; i < batchSize; i++) spawnEnemy(weightedRandom(table));
     spawnTimer = spawnRate;
   }
 
@@ -573,9 +638,9 @@ function updateSpawning(dt) {
   if (gameTime >= 180 && !bossSpawned['shoggoth']) {
     bossSpawned['shoggoth'] = true;
     spawnEnemy('shoggoth');
-    showMeme("BOSS: THE SHOGGOTH\n\"The mask is slipping...\" 😊");
+    showMeme("BOSS: THE SHOGGOTH\n\"The mask is slipping...\" \uD83D\uDE0A");
   }
-  if (gameTime >= 300 && !bossSpawned['bitter_lesson']) {
+  if (gameTime >= FINAL_BOSS_TIME && !bossSpawned['bitter_lesson']) {
     bossSpawned['bitter_lesson'] = true;
     spawnEnemy('bitter_lesson');
     showMeme("FINAL BOSS: THE BITTER LESSON ITSELF\n\"Scale will defeat you too.\"");
@@ -592,21 +657,12 @@ function updateSpawning(dt) {
 // ===================== WEAPONS LOGIC =====================
 function getWeaponStat(w, stat) {
   const def = WEAPON_DEFS[w.id];
-  let val = def['base' + stat.charAt(0).toUpperCase() + stat.slice(1)];
-  const lvl = w.level;
+  let val;
+  if (stat === 'dmg') val = def.baseDmg * (1 + (w.level - 1) * 0.25);
+  else if (stat === 'interval') val = def.baseInterval * Math.pow(0.88, w.level - 1);
+  else if (stat === 'range') val = def.baseRange * (1 + (w.level - 1) * 0.15);
+  else val = def['base' + stat.charAt(0).toUpperCase() + stat.slice(1)];
 
-  // Apply level scaling
-  if (stat === 'Dmg' || stat === 'dmg') {
-    val = def.baseDmg * (1 + (lvl - 1) * 0.25);
-  }
-  if (stat === 'interval') {
-    val = def.baseInterval * Math.pow(0.88, lvl - 1);
-  }
-  if (stat === 'range') {
-    val = def.baseRange * (1 + (lvl - 1) * 0.15);
-  }
-
-  // Apply passives
   const computeCount = player.weapons.filter(w => w.id === '__more_compute').length;
   const dataCount = player.weapons.filter(w => w.id === '__more_data').length;
   const mixedCount = player.weapons.filter(w => w.id === '__mixed_precision').length;
@@ -614,7 +670,6 @@ function getWeaponStat(w, stat) {
   if (stat === 'interval') val *= Math.pow(0.85, computeCount) * Math.pow(0.9, mixedCount);
   if (stat === 'dmg') val *= Math.pow(1.2, dataCount) * Math.pow(1.1, mixedCount);
   if (stat === 'range') val *= Math.pow(1.1, mixedCount);
-
   return val;
 }
 
@@ -624,7 +679,6 @@ function getProjectileCount(w) {
   if (w.id === 'rlhf') return w.level >= 7 ? 3 : w.level >= 4 ? 2 : 1;
   return 1;
 }
-
 function getOrbiterCount(w) {
   if (w.id !== 'embedding') return 0;
   return w.level >= 8 ? 6 : w.level >= 6 ? 4 : w.level >= 3 ? 3 : 2;
@@ -640,179 +694,132 @@ function nearestEnemy(x, y, range) {
   return best;
 }
 
-function updateWeapons(dt) {
-  for (const w of player.weapons) {
-    if (w.id.startsWith('__')) continue; // passive
-
+function fireWeaponsFor(p, dt) {
+  for (const w of p.weapons) {
+    if (w.id.startsWith('__')) continue;
     w.timer -= dt * 1000;
     if (w.timer > 0) continue;
-
     const interval = getWeaponStat(w, 'interval');
     const dmg = getWeaponStat(w, 'dmg');
     const range = getWeaponStat(w, 'range');
-
     w.timer = interval;
 
     if (w.id === 'gradient_descent') {
       const count = getProjectileCount(w);
       for (let i = 0; i < count; i++) {
-        const target = nearestEnemy(player.x, player.y, range);
+        const target = nearestEnemy(p.x, p.y, range);
         if (!target) break;
-        const a = angle(player, target) + (count > 1 ? (i - (count-1)/2) * 0.15 : 0);
+        const a = angle(p, target) + (count > 1 ? (i - (count-1)/2) * 0.15 : 0);
         const speed = WEAPON_DEFS[w.id].projectileSpeed * (1 + w.level * 0.05);
         projectiles.push({
-          x: player.x, y: player.y,
-          vx: Math.cos(a) * speed, vy: Math.sin(a) * speed,
-          dmg, life: range / speed + 0.5,
+          x: p.x, y: p.y, vx: Math.cos(a)*speed, vy: Math.sin(a)*speed,
+          dmg, life: range/speed + 0.5,
           size: WEAPON_DEFS[w.id].projSize + (w.level >= 8 ? 3 : 0),
           color: w.level >= 8 ? '#0ff' : WEAPON_DEFS[w.id].projColor,
-          pierce: w.level >= 8 ? 3 : 1,
-          type: 'bullet',
+          pierce: w.level >= 8 ? 3 : 1, type: 'bullet',
         });
       }
     }
-
     if (w.id === 'attention') {
-      // AOE pulse
-      const r = range;
-      for (const e of enemies) {
-        if (dist(player, e) < r) {
-          damageEnemy(e, dmg);
-        }
-      }
-      // Visual
-      particles.push({
-        x: player.x, y: player.y, vx: 0, vy: 0,
-        life: 0.3, maxLife: 0.3, color: '#0ff', size: r, type: 'ring',
-      });
+      for (const e of enemies) { if (dist(p, e) < range) damageEnemy(e, dmg); }
+      particles.push({ x: p.x, y: p.y, vx: 0, vy: 0, life: 0.3, maxLife: 0.3, color: '#0ff', size: range, type: 'ring' });
     }
-
     if (w.id === 'backprop') {
       const count = getProjectileCount(w);
       for (let i = 0; i < count; i++) {
         const a = (Math.PI * 2 / count) * i + gameTime;
         const speed = WEAPON_DEFS[w.id].projectileSpeed;
         projectiles.push({
-          x: player.x, y: player.y,
-          vx: Math.cos(a) * speed, vy: Math.sin(a) * speed,
-          dmg, life: 1.5,
-          size: WEAPON_DEFS[w.id].projSize + w.level * 0.5,
-          color: WEAPON_DEFS[w.id].projColor,
-          pierce: 99, type: 'boomerang',
-          originX: player.x, originY: player.y, age: 0,
+          x: p.x, y: p.y, vx: Math.cos(a)*speed, vy: Math.sin(a)*speed,
+          dmg, life: 1.5, size: WEAPON_DEFS[w.id].projSize + w.level*0.5,
+          color: WEAPON_DEFS[w.id].projColor, pierce: 99, type: 'boomerang',
+          originX: p.x, originY: p.y, age: 0, owner: p,
         });
       }
     }
-
     if (w.id === 'chain_of_thought') {
-      const target = nearestEnemy(player.x, player.y, range);
+      const target = nearestEnemy(p.x, p.y, range);
       if (target) {
-        const a = angle(player, target);
+        const a = angle(p, target);
         const beamWidth = 15 + w.level * 3;
         const beamCount = w.level >= 8 ? 3 : 1;
         for (let b = 0; b < beamCount; b++) {
           const ba = a + (beamCount > 1 ? (b - 1) * 0.4 : 0);
-          // Damage all enemies in beam path
           for (const e of enemies) {
-            const ex = e.x - player.x, ey = e.y - player.y;
+            const ex = e.x - p.x, ey = e.y - p.y;
             const proj = ex * Math.cos(ba) + ey * Math.sin(ba);
             if (proj < 0 || proj > range) continue;
             const perp = Math.abs(-ex * Math.sin(ba) + ey * Math.cos(ba));
             if (perp < beamWidth) damageEnemy(e, dmg);
           }
-          // Visual beam
           projectiles.push({
-            x: player.x, y: player.y,
-            vx: Math.cos(ba), vy: Math.sin(ba),
-            dmg: 0, life: 0.15, size: beamWidth,
-            color: '#ff0', pierce: 99, type: 'beam', range,
+            x: p.x, y: p.y, vx: Math.cos(ba), vy: Math.sin(ba),
+            dmg: 0, life: 0.15, size: beamWidth, color: '#ff0', pierce: 99, type: 'beam', range,
           });
         }
       }
     }
-
     if (w.id === 'rlhf') {
       const count = getProjectileCount(w);
       for (let i = 0; i < count; i++) {
-        const target = nearestEnemy(player.x, player.y, range * 1.5);
+        const target = nearestEnemy(p.x, p.y, range * 1.5);
         if (!target) break;
-        const a = angle(player, target) + (i - (count-1)/2) * 0.3;
+        const a = angle(p, target) + (i - (count-1)/2) * 0.3;
         const speed = WEAPON_DEFS[w.id].projectileSpeed * (1 + w.level * 0.08);
         projectiles.push({
-          x: player.x, y: player.y,
-          vx: Math.cos(a) * speed, vy: Math.sin(a) * speed,
-          dmg, life: 3,
-          size: WEAPON_DEFS[w.id].projSize,
-          color: WEAPON_DEFS[w.id].projColor,
-          pierce: 1, type: 'homing',
+          x: p.x, y: p.y, vx: Math.cos(a)*speed, vy: Math.sin(a)*speed,
+          dmg, life: 3, size: WEAPON_DEFS[w.id].projSize,
+          color: WEAPON_DEFS[w.id].projColor, pierce: 1, type: 'homing',
           target, homingStrength: 3 + w.level * 0.5,
         });
       }
     }
-
     if (w.id === 'dropout') {
-      const r = range;
       const count = 3 + w.level;
       for (let i = 0; i < count; i++) {
-        const dx = rand(-r, r), dy = rand(-r, r);
-        if (dx*dx + dy*dy > r*r) continue;
-        const px = player.x + dx, py = player.y + dy;
+        const dx = rand(-range, range), dy = rand(-range, range);
+        if (dx*dx + dy*dy > range*range) continue;
+        const px = p.x + dx, py = p.y + dy;
         for (const e of enemies) {
-          if (dist({x: px, y: py}, e) < e.size + 10) {
-            damageEnemy(e, dmg);
-          }
+          if (dist({x: px, y: py}, e) < e.size + 10) damageEnemy(e, dmg);
         }
         spawnParticles(px, py, '#aaf', 2, 30, 0.3);
       }
     }
-
     if (w.id === 'loss_spike') {
-      const r = range;
-      for (const e of enemies) {
-        if (dist(player, e) < r) {
-          damageEnemy(e, dmg);
-        }
-      }
+      for (const e of enemies) { if (dist(p, e) < range) damageEnemy(e, dmg); }
       screenShake = 0.3;
-      spawnParticles(player.x, player.y, '#f00', 20, 200, 0.5);
-      particles.push({
-        x: player.x, y: player.y, vx: 0, vy: 0,
-        life: 0.4, maxLife: 0.4, color: '#f40', size: r, type: 'ring',
-      });
+      spawnParticles(p.x, p.y, '#f00', 20, 200, 0.5);
+      particles.push({ x: p.x, y: p.y, vx: 0, vy: 0, life: 0.4, maxLife: 0.4, color: '#f40', size: range, type: 'ring' });
     }
-
-    if (w.id === 'embedding') {
-      // Handled in render/update as continuous
-      w.timer = 100; // just keep it ticking
-    }
+    if (w.id === 'embedding') { w.timer = 100; }
   }
 
-  // Embedding orbiter damage (continuous)
-  const embW = player.weapons.find(w => w.id === 'embedding');
+  // Embedding orbiter damage
+  const embW = p.weapons.find(w => w.id === 'embedding');
   if (embW) {
     const count = getOrbiterCount(embW);
     const orbitR = getWeaponStat(embW, 'range');
     const dmg = getWeaponStat(embW, 'dmg');
     for (let i = 0; i < count; i++) {
       const a = gameTime * (2 + embW.level * 0.3) + (Math.PI * 2 / count) * i;
-      const ox = player.x + Math.cos(a) * orbitR;
-      const oy = player.y + Math.sin(a) * orbitR;
+      const ox = p.x + Math.cos(a) * orbitR, oy = p.y + Math.sin(a) * orbitR;
       for (const e of enemies) {
-        if (dist({x: ox, y: oy}, e) < e.size + 12) {
-          damageEnemy(e, dmg * 0.03); // per-frame damage
-        }
+        if (dist({x: ox, y: oy}, e) < e.size + 12) damageEnemy(e, dmg * 0.03);
       }
     }
   }
 }
 
+function updateWeapons(dt) {
+  fireWeaponsFor(player, dt);
+  if (player2 && gameMode === 'coop') fireWeaponsFor(player2, dt);
+}
+
 function damageEnemy(e, dmg) {
   e.hp -= dmg;
   e.flashTimer = 0.1;
-  // Knockback
-  const a = angle(player, e);
-  e.knockback.x += Math.cos(a) * 50;
-  e.knockback.y += Math.sin(a) * 50;
+  // NO knockback - removed as requested
   spawnDamageNumber(e.x + rand(-10,10), e.y - e.size, dmg, '#ff0');
 }
 
@@ -822,30 +829,23 @@ function updateProjectiles(dt) {
     const p = projectiles[i];
     p.life -= dt;
     if (p.life <= 0) { projectiles.splice(i, 1); continue; }
-
-    if (p.type === 'beam') continue; // beams are just visual
-
+    if (p.type === 'beam') continue;
     if (p.type === 'boomerang') {
       p.age = (p.age || 0) + dt;
-      // After 0.5s, curve back to player
       if (p.age > 0.5) {
-        const a = angle(p, player);
+        const owner = p.owner || player;
+        const a = angle(p, owner);
         p.vx = lerp(p.vx, Math.cos(a) * 300, dt * 3);
         p.vy = lerp(p.vy, Math.sin(a) * 300, dt * 3);
       }
     }
-
     if (p.type === 'homing' && p.target && p.target.hp > 0) {
       const a = angle(p, p.target);
-      const s = p.homingStrength;
-      p.vx = lerp(p.vx, Math.cos(a) * 300, dt * s);
-      p.vy = lerp(p.vy, Math.sin(a) * 300, dt * s);
+      p.vx = lerp(p.vx, Math.cos(a) * 300, dt * p.homingStrength);
+      p.vy = lerp(p.vy, Math.sin(a) * 300, dt * p.homingStrength);
     }
-
     p.x += p.vx * dt;
     p.y += p.vy * dt;
-
-    // Collision with enemies
     if (p.dmg > 0) {
       for (const e of enemies) {
         if (e.phase && Math.sin(e.phaseTimer * 3) < -0.3) continue;
@@ -864,53 +864,52 @@ function updateProjectiles(dt) {
 function updateEnemies(dt) {
   for (let i = enemies.length - 1; i >= 0; i--) {
     const e = enemies[i];
-
-    // Phase timer for hallucinations
     e.phaseTimer += dt;
     e.flashTimer = Math.max(0, e.flashTimer - dt);
-
-    // Knockback decay
     e.knockback.x *= Math.pow(0.02, dt);
     e.knockback.y *= Math.pow(0.02, dt);
 
-    // Move toward player
-    const a = angle(e, player);
+    // Find closest player target
+    let target = player;
+    if (player2 && gameMode === 'coop') {
+      if (dist(e, player2) < dist(e, player)) target = player2;
+    }
+
+    const a = angle(e, target);
     e.x += (Math.cos(a) * e.speed + e.knockback.x) * dt;
     e.y += (Math.sin(a) * e.speed + e.knockback.y) * dt;
 
-    // Damage player on contact
-    if (dist(e, player) < e.size + player.w/2) {
-      if (player.invincible <= 0) {
-        const finalDmg = Math.max(1, e.damage - player.armor);
-        player.hp -= finalDmg;
-        player.invincible = 0.5;
-        spawnDamageNumber(player.x, player.y - 20, finalDmg, '#f00');
+    // Clamp enemies to map
+    e.x = clamp(e.x, -MAP_HALF, MAP_HALF);
+    e.y = clamp(e.y, -MAP_HALF, MAP_HALF);
+
+    // Damage players on contact
+    const checkPlayerCollision = (p) => {
+      if (dist(e, p) < e.size + p.w/2 && p.invincible <= 0 && p.hp > 0) {
+        const finalDmg = Math.max(1, e.damage - p.armor);
+        p.hp -= finalDmg;
+        p.invincible = 0.5;
+        spawnDamageNumber(p.x, p.y - 20, finalDmg, '#f00');
         screenShake = 0.15;
-        spawnParticles(player.x, player.y, '#f00', 5, 100, 0.3);
+        spawnParticles(p.x, p.y, '#f00', 5, 100, 0.3);
       }
-    }
+    };
+    checkPlayerCollision(player);
+    if (player2 && gameMode === 'coop') checkPlayerCollision(player2);
 
     // Death
     if (e.hp <= 0) {
       kills++;
       spawnParticles(e.x, e.y, e.color, 8, 120, 0.4);
-
-      // Drop XP orbs
       const orbCount = e.boss ? 10 : Math.ceil(e.xp / 2);
       const xpPer = e.xp / orbCount;
       for (let j = 0; j < orbCount; j++) {
         xpOrbs.push({
           x: e.x + rand(-20, 20), y: e.y + rand(-20, 20),
-          xp: xpPer, size: e.boss ? 8 : 5,
-          color: e.boss ? '#ff0' : '#0f0',
+          xp: xpPer, size: e.boss ? 8 : 5, color: e.boss ? '#ff0' : '#0f0',
         });
       }
-
-      if (e.boss) {
-        screenShake = 0.5;
-        showMeme(e.label + " DEFEATED!\n+MASSIVE XP");
-      }
-
+      if (e.boss) { screenShake = 0.5; showMeme(e.label + " DEFEATED!\n+MASSIVE XP"); }
       enemies.splice(i, 1);
     }
   }
@@ -918,30 +917,33 @@ function updateEnemies(dt) {
 
 // ===================== XP & LEVELING =====================
 function updateXPOrbs(dt) {
-  const magRange = player.magnetRange;
-  for (let i = xpOrbs.length - 1; i >= 0; i--) {
-    const o = xpOrbs[i];
-    const d = dist(o, player);
-    if (d < magRange) {
-      const a = angle(o, player);
-      const speed = 300 * (1 - d/magRange) + 100;
-      o.x += Math.cos(a) * speed * dt;
-      o.y += Math.sin(a) * speed * dt;
-    }
-    if (d < 20) {
-      xp += o.xp;
-      xpOrbs.splice(i, 1);
-      // Check level up
-      while (xp >= xpToNext) {
-        xp -= xpToNext;
-        playerLevel++;
-        xpToNext = Math.floor(10 * Math.pow(1.2, playerLevel - 1));
-        paramCount = Math.floor(1000 * Math.pow(2.5, playerLevel - 1));
-        loss = Math.max(0.001, 4.0 * Math.pow(0.92, playerLevel - 1));
-        showLevelUpScreen();
+  const collectXP = (p) => {
+    const magRange = p.magnetRange;
+    for (let i = xpOrbs.length - 1; i >= 0; i--) {
+      const o = xpOrbs[i];
+      const d = dist(o, p);
+      if (d < magRange) {
+        const a = angle(o, p);
+        const speed = 300 * (1 - d/magRange) + 100;
+        o.x += Math.cos(a) * speed * dt;
+        o.y += Math.sin(a) * speed * dt;
+      }
+      if (d < 20) {
+        xp += o.xp;
+        xpOrbs.splice(i, 1);
+        while (xp >= xpToNext) {
+          xp -= xpToNext;
+          playerLevel++;
+          xpToNext = Math.floor(10 * Math.pow(1.2, playerLevel - 1));
+          paramCount = Math.floor(1000 * Math.pow(2.5, playerLevel - 1));
+          loss = Math.max(0.001, 4.0 * Math.pow(0.92, playerLevel - 1));
+          showLevelUpScreen();
+        }
       }
     }
-  }
+  };
+  collectXP(player);
+  if (player2 && gameMode === 'coop') collectXP(player2);
 }
 
 // ===================== LEVEL UP SCREEN =====================
@@ -950,11 +952,9 @@ function showLevelUpScreen() {
   const screen = document.getElementById('levelup-screen');
   screen.classList.add('active');
   document.getElementById('levelup-subtitle').textContent = choose(levelUpSubtitles);
-
   const choices = generateChoices();
   const container = document.getElementById('levelup-choices');
   container.innerHTML = '';
-
   for (const choice of choices) {
     const card = document.createElement('div');
     card.className = 'levelup-card';
@@ -979,41 +979,31 @@ function generateChoices() {
   const owned = player.weapons.filter(w => !w.id.startsWith('__'));
   const ownedIds = owned.map(w => w.id);
   const passiveOwned = player.weapons.filter(w => w.id.startsWith('__'));
-  const passiveIds = passiveOwned.map(w => w.id);
-
   const pool = [];
 
-  // Upgrades for existing weapons
   for (const w of owned) {
     if (w.level < WEAPON_DEFS[w.id].maxLevel) {
       const def = WEAPON_DEFS[w.id];
       pool.push({
-        icon: def.icon,
-        name: def.name,
+        icon: def.icon, name: def.name,
         desc: def.levelDescs[w.level] || 'Improve ' + def.name,
-        levelLabel: `Level ${w.level} → ${w.level + 1}`,
+        levelLabel: `Level ${w.level} \u2192 ${w.level + 1}`,
         flavor: w.level + 1 >= def.maxLevel ? "MAXIMUM SCALE ACHIEVED" : def.flavor,
-        weight: 3,
-        apply: () => { w.level++; }
+        weight: 3, apply: () => { w.level++; }
       });
     }
   }
-
-  // New weapons (max 6 weapons)
   if (owned.length < 6) {
     for (const [id, def] of Object.entries(WEAPON_DEFS)) {
       if (!ownedIds.includes(id)) {
         pool.push({
           icon: def.icon, name: def.name + ' (NEW)',
           desc: def.desc, levelLabel: 'Level 1', flavor: def.flavor,
-          weight: 2,
-          apply: () => { player.weapons.push(createWeaponState(id)); }
+          weight: 2, apply: () => { player.weapons.push(createWeaponState(id)); }
         });
       }
     }
   }
-
-  // Passives
   for (const [id, def] of Object.entries(PASSIVE_DEFS)) {
     const fullId = '__' + id;
     const count = passiveOwned.filter(p => p.id === fullId).length;
@@ -1021,38 +1011,28 @@ function generateChoices() {
       pool.push({
         icon: def.icon, name: def.name,
         desc: def.desc + (count > 0 ? ` (x${count + 1})` : ''),
-        levelLabel: count > 0 ? `Stack ${count} → ${count + 1}` : null,
-        flavor: def.flavor,
-        weight: 2,
-        apply: () => {
-          player.weapons.push({ id: fullId, level: 1, timer: 0 });
-          applyPassive(id);
-        }
+        levelLabel: count > 0 ? `Stack ${count} \u2192 ${count + 1}` : null,
+        flavor: def.flavor, weight: 2,
+        apply: () => { player.weapons.push({ id: fullId, level: 1, timer: 0 }); applyPassive(id); }
       });
     }
   }
 
-  // Shuffle and pick 3-4
   pool.sort(() => Math.random() - 0.5);
-  // Weighted selection
   const selected = [];
   const count = Math.min(pool.length, owned.length < 2 ? 4 : 3);
   for (let i = 0; i < count && pool.length > 0; i++) {
-    // Simple selection
     selected.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
   }
-
   return selected;
 }
 
 function applyPassive(id) {
-  if (id === 'more_params') player.maxHp += 20;
-  if (id === 'more_params') player.hp = Math.min(player.hp + 20, player.maxHp);
+  if (id === 'more_params') { player.maxHp += 20; player.hp = Math.min(player.hp + 20, player.maxHp); }
   if (id === 'batch_norm') player.regenRate += 1;
   if (id === 'learning_rate') player.speed *= 1.12;
   if (id === 'magnet') player.magnetRange *= 1.5;
   if (id === 'residual') player.armor += 3;
-  // compute, data, mixed_precision handled in getWeaponStat
 }
 
 // ===================== MEME FLASH =====================
@@ -1062,45 +1042,196 @@ function showMeme(text) {
   el.style.opacity = '1';
   memeTimer = 2.0;
 }
+function randomMeme() { if (Math.random() < 0.003) showMeme(choose(memeFlashes)); }
 
-function randomMeme() {
-  if (Math.random() < 0.003) { // ~every 5-6 seconds on avg
-    showMeme(choose(memeFlashes));
+// ===================== PLAYER UPDATE =====================
+function updateSinglePlayer(p, dt, useIJKL) {
+  let dx = 0, dy = 0;
+  if (useIJKL) {
+    if (keys['i']) dy = -1;
+    if (keys['k']) dy = 1;
+    if (keys['j']) dx = -1;
+    if (keys['l']) dx = 1;
+  } else {
+    if (keys['w'] || keys['arrowup']) dy = -1;
+    if (keys['s'] || keys['arrowdown']) dy = 1;
+    if (keys['a'] || keys['arrowleft']) dx = -1;
+    if (keys['d'] || keys['arrowright']) dx = 1;
+  }
+  if (dx && dy) { dx *= 0.707; dy *= 0.707; }
+
+  const speed = p.speed * (1 + p.weapons.filter(w => w.id === '__learning_rate').length * 0.12);
+  p.x += dx * speed * dt;
+  p.y += dy * speed * dt;
+
+  // Map boundary
+  const margin = 10;
+  const wasOutside = p.x < -MAP_HALF + margin || p.x > MAP_HALF - margin ||
+                     p.y < -MAP_HALF + margin || p.y > MAP_HALF - margin;
+  p.x = clamp(p.x, -MAP_HALF, MAP_HALF);
+  p.y = clamp(p.y, -MAP_HALF, MAP_HALF);
+  if (wasOutside) {
+    document.getElementById('boundary-warning').style.opacity = '1';
+    setTimeout(() => document.getElementById('boundary-warning').style.opacity = '0', 500);
+  }
+
+  p.invincible = Math.max(0, p.invincible - dt);
+
+  if (p.regenRate > 0) {
+    p.regenTimer += dt;
+    if (p.regenTimer >= 1) { p.regenTimer = 0; p.hp = Math.min(p.hp + p.regenRate, p.maxHp); }
   }
 }
 
-// ===================== PLAYER UPDATE =====================
 function updatePlayer(dt) {
-  let dx = 0, dy = 0;
-  if (keys['w'] || keys['arrowup']) dy = -1;
-  if (keys['s'] || keys['arrowdown']) dy = 1;
-  if (keys['a'] || keys['arrowleft']) dx = -1;
-  if (keys['d'] || keys['arrowright']) dx = 1;
-  if (dx && dy) { dx *= 0.707; dy *= 0.707; }
+  // In versus mode as P2, no direct player control
+  if (gameMode === 'versus' && !isHost) return;
 
-  const speed = player.speed * (1 + player.weapons.filter(w => w.id === '__learning_rate').length * 0.12);
-  player.x += dx * speed * dt;
-  player.y += dy * speed * dt;
+  updateSinglePlayer(player, dt, false);
 
-  player.invincible = Math.max(0, player.invincible - dt);
-
-  // Regen
-  if (player.regenRate > 0) {
-    player.regenTimer += dt;
-    if (player.regenTimer >= 1) {
-      player.regenTimer = 0;
-      player.hp = Math.min(player.hp + player.regenRate, player.maxHp);
+  if (player2 && gameMode === 'coop') {
+    if (isHost) {
+      // P2 is remote - use received inputs
+      updateP2FromRemote(player2, dt);
+    } else {
+      // We ARE P2 locally
+      updateSinglePlayer(player2, dt, false);
     }
   }
 
-  // Camera follows player
-  camera.x = lerp(camera.x, player.x - W/2, dt * 5);
-  camera.y = lerp(camera.y, player.y - H/2, dt * 5);
+  // Camera - in coop, center between both players
+  let camTargetX = player.x - W/2;
+  let camTargetY = player.y - H/2;
+  if (player2 && gameMode === 'coop') {
+    camTargetX = (player.x + player2.x) / 2 - W/2;
+    camTargetY = (player.y + player2.y) / 2 - W/2;
+  }
+  camera.x = lerp(camera.x, camTargetX, dt * 5);
+  camera.y = lerp(camera.y, camTargetY, dt * 5);
 
   // Check death
   if (player.hp <= 0) {
+    if (gameMode === 'coop' && player2 && player2.hp > 0) {
+      // In co-op, both must die
+    } else {
+      gameOver();
+    }
+  }
+  if (player2 && gameMode === 'coop' && player2.hp <= 0 && player.hp <= 0) {
     gameOver();
   }
+
+  // Victory check
+  if (gameTime >= GAME_DURATION && gameRunning) {
+    victory();
+  }
+}
+
+let remoteP2Keys = {};
+function updateP2FromRemote(p2, dt) {
+  let dx = 0, dy = 0;
+  if (remoteP2Keys['w'] || remoteP2Keys['arrowup']) dy = -1;
+  if (remoteP2Keys['s'] || remoteP2Keys['arrowdown']) dy = 1;
+  if (remoteP2Keys['a'] || remoteP2Keys['arrowleft']) dx = -1;
+  if (remoteP2Keys['d'] || remoteP2Keys['arrowright']) dx = 1;
+  if (dx && dy) { dx *= 0.707; dy *= 0.707; }
+
+  const speed = p2.speed * (1 + p2.weapons.filter(w => w.id === '__learning_rate').length * 0.12);
+  p2.x += dx * speed * dt;
+  p2.y += dy * speed * dt;
+  p2.x = clamp(p2.x, -MAP_HALF, MAP_HALF);
+  p2.y = clamp(p2.y, -MAP_HALF, MAP_HALF);
+  p2.invincible = Math.max(0, p2.invincible - dt);
+  if (p2.regenRate > 0) {
+    p2.regenTimer += dt;
+    if (p2.regenTimer >= 1) { p2.regenTimer = 0; p2.hp = Math.min(p2.hp + p2.regenRate, p2.maxHp); }
+  }
+}
+
+// ===================== VERSUS MODE LOGIC =====================
+function updateVersus(dt) {
+  if (gameMode !== 'versus') return;
+  // P2 earns currency over time
+  versusCurrency += dt * (8 + gameTime / 30) * ngSpeedMult;
+  if (!isHost) {
+    document.getElementById('versus-currency').textContent = 'Compute Budget: ' + Math.floor(versusCurrency);
+    updateVersusButtons();
+  }
+}
+
+function setupVersusUI() {
+  const spawnDiv = document.getElementById('spawn-buttons');
+  const upgradeDiv = document.getElementById('upgrade-buttons');
+  spawnDiv.innerHTML = '';
+  upgradeDiv.innerHTML = '';
+
+  const spawnTypes = ['handcrafted','hot_take','scaling_skeptic','expert_system','stochastic_parrot',
+    'hallucination','symbolic_ai','alignment_researcher','regulation','gpu_shortage','paperclip','shoggoth'];
+
+  for (const type of spawnTypes) {
+    const def = ENEMY_TYPES[type];
+    const cost = SPAWN_COSTS[type];
+    const btn = document.createElement('button');
+    btn.className = 'spawn-btn';
+    btn.dataset.type = type;
+    btn.dataset.cost = cost;
+    btn.textContent = `${def.label} ${def.name} [$${cost}]`;
+    btn.addEventListener('click', () => {
+      if (versusCurrency >= cost) {
+        versusCurrency -= cost;
+        // Spawn near player but from a random direction
+        const a = Math.random() * Math.PI * 2;
+        const d = 300 + Math.random() * 200;
+        const pos = pendingSpawnPos || {
+          x: player.x + Math.cos(a) * d,
+          y: player.y + Math.sin(a) * d,
+        };
+        pendingSpawnPos = null;
+        if (conn) {
+          conn.send({ type: 'spawn_enemy', enemyType: type, pos });
+        } else {
+          spawnEnemy(type, pos);
+        }
+      }
+    });
+    spawnDiv.appendChild(btn);
+  }
+
+  // Upgrades for versus P2
+  const upgrades = [
+    { name: 'Enemy Damage +20%', cost: 50, apply: () => { versusEnemyDmgMult *= 1.2; } },
+    { name: 'Enemy HP +20%', cost: 50, apply: () => { versusEnemyHpMult *= 1.2; } },
+    { name: 'Enemy Speed +15%', cost: 40, apply: () => { versusEnemySpeedMult *= 1.15; } },
+    { name: 'Spawn Horde (10 random)', cost: 80, apply: () => {
+      const types = ['handcrafted','hot_take','scaling_skeptic','hallucination'];
+      for (let i = 0; i < 10; i++) {
+        const t = choose(types);
+        if (conn) conn.send({ type: 'spawn_enemy', enemyType: t });
+        else spawnEnemy(t);
+      }
+    }},
+  ];
+
+  for (const upg of upgrades) {
+    const btn = document.createElement('button');
+    btn.className = 'upgrade-btn';
+    btn.dataset.cost = upg.cost;
+    btn.textContent = `${upg.name} [$${upg.cost}]`;
+    btn.addEventListener('click', () => {
+      if (versusCurrency >= upg.cost) {
+        versusCurrency -= upg.cost;
+        upg.apply();
+        if (conn) conn.send({ type: 'versus_upgrade', dmg: versusEnemyDmgMult, hp: versusEnemyHpMult, spd: versusEnemySpeedMult });
+      }
+    });
+    upgradeDiv.appendChild(btn);
+  }
+}
+
+function updateVersusButtons() {
+  document.querySelectorAll('.spawn-btn, .upgrade-btn').forEach(btn => {
+    btn.disabled = versusCurrency < parseInt(btn.dataset.cost);
+  });
 }
 
 // ===================== HUD UPDATE =====================
@@ -1108,31 +1239,28 @@ function updateHUD() {
   document.getElementById('loss-display').textContent = 'Loss: ' + loss.toFixed(3);
   document.getElementById('param-display').textContent = 'Parameters: ' + formatParams(paramCount);
   document.getElementById('kill-display').textContent = 'Enemies Deprecated: ' + kills;
-  document.getElementById('timer').textContent = formatTime(gameTime);
+  // Show countdown timer
+  const remaining = Math.max(0, GAME_DURATION - gameTime);
+  document.getElementById('timer').textContent = formatTime(remaining);
+  document.getElementById('timer').style.color = remaining < 30 ? '#f00' : remaining < 60 ? '#ff0' : '#fff';
   document.getElementById('xp-label').textContent = `Training Data: ${Math.floor(xp)} / ${xpToNext}`;
   document.getElementById('xp-bar').style.width = (xp / xpToNext * 100) + '%';
 
-  // Weapon display
+  if (ngPlusLevel > 0) {
+    document.getElementById('ng-plus-display').style.display = 'block';
+    document.getElementById('ng-plus-display').textContent = 'NG+ Speed: ' + ngSpeedMult.toFixed(1) + 'x';
+  }
+
   const wepDiv = document.getElementById('weapon-display');
   wepDiv.innerHTML = player.weapons
     .filter(w => !w.id.startsWith('__'))
-    .map(w => {
-      const def = WEAPON_DEFS[w.id];
-      return `<div>${def.icon} ${def.name} Lv.${w.level}</div>`;
-    }).join('');
+    .map(w => { const def = WEAPON_DEFS[w.id]; return `<div>${def.icon} ${def.name} Lv.${w.level}</div>`; }).join('');
 
-  // Meme flash
-  if (memeTimer > 0) {
-    memeTimer -= 1/60;
-    if (memeTimer <= 0) {
-      document.getElementById('meme-flash').style.opacity = '0';
-    }
-  }
+  if (memeTimer > 0) { memeTimer -= 1/60; if (memeTimer <= 0) document.getElementById('meme-flash').style.opacity = '0'; }
 }
 
 // ===================== RENDERING =====================
 function drawBackground() {
-  // Grid
   ctx.strokeStyle = 'rgba(0, 255, 0, 0.05)';
   ctx.lineWidth = 1;
   const gridSize = 60;
@@ -1144,28 +1272,52 @@ function drawBackground() {
   for (let y = offY; y < H; y += gridSize) {
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
   }
+
+  // Draw map boundary
+  const bx1 = -MAP_HALF - camera.x, by1 = -MAP_HALF - camera.y;
+  const bx2 = MAP_HALF - camera.x, by2 = MAP_HALF - camera.y;
+  const bw = bx2 - bx1, bh = by2 - by1;
+
+  // Boundary walls with glow
+  ctx.save();
+  ctx.strokeStyle = '#f00';
+  ctx.lineWidth = 4;
+  ctx.shadowColor = '#f00';
+  ctx.shadowBlur = 15;
+  ctx.strokeRect(bx1, by1, bw, bh);
+  ctx.shadowBlur = 0;
+
+  // Warning zone (inner boundary glow)
+  const warn = 100;
+  ctx.strokeStyle = 'rgba(255, 0, 0, 0.15)';
+  ctx.lineWidth = warn;
+  ctx.strokeRect(bx1 + warn/2, by1 + warn/2, bw - warn, bh - warn);
+  ctx.restore();
+
+  // Darken outside boundary
+  ctx.fillStyle = 'rgba(255, 0, 0, 0.08)';
+  ctx.fillRect(-10, -10, W + 20, by1); // top
+  ctx.fillRect(-10, by2, W + 20, H - by2 + 10); // bottom
+  ctx.fillRect(-10, by1, bx1 + 10, bh); // left
+  ctx.fillRect(bx2, by1, W - bx2 + 10, bh); // right
 }
 
-function worldToScreen(wx, wy) {
-  return { x: wx - camera.x, y: wy - camera.y };
-}
+function worldToScreen(wx, wy) { return { x: wx - camera.x, y: wy - camera.y }; }
 
-function drawPlayer() {
-  const { x, y } = worldToScreen(player.x, player.y);
-  const flash = player.invincible > 0 && Math.floor(player.invincible * 10) % 2;
+function drawPlayerSprite(p, isP2) {
+  const { x, y } = worldToScreen(p.x, p.y);
+  if (x < -100 || x > W + 100 || y < -100 || y > H + 100) return;
+  const flash = p.invincible > 0 && Math.floor(p.invincible * 10) % 2;
   if (flash) return;
 
-  // Draw neural network icon
-  const s = player.w/2;
+  const s = p.w/2;
   ctx.save();
   ctx.translate(x, y);
 
-  // Glow
   const glow = 10 + Math.sin(gameTime * 3) * 3;
-  ctx.shadowColor = '#0ff';
+  ctx.shadowColor = isP2 ? '#f0f' : '#0ff';
   ctx.shadowBlur = glow;
 
-  // Body (hexagon)
   ctx.beginPath();
   for (let i = 0; i < 6; i++) {
     const a = Math.PI / 3 * i - Math.PI/6;
@@ -1173,25 +1325,19 @@ function drawPlayer() {
     i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
   }
   ctx.closePath();
-  ctx.fillStyle = 'rgba(0, 40, 60, 0.9)';
+  ctx.fillStyle = isP2 ? 'rgba(40, 0, 60, 0.9)' : 'rgba(0, 40, 60, 0.9)';
   ctx.fill();
-  ctx.strokeStyle = '#0ff';
+  ctx.strokeStyle = isP2 ? '#f0f' : '#0ff';
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  // Inner nodes
   ctx.shadowBlur = 0;
-  const nodePositions = [
-    [0, -6], [-6, 4], [6, 4], [0, 0],
-  ];
-  ctx.fillStyle = '#0f0';
+  const nodePositions = [[0, -6], [-6, 4], [6, 4], [0, 0]];
+  ctx.fillStyle = isP2 ? '#f0f' : '#0f0';
   for (const [nx, ny] of nodePositions) {
-    ctx.beginPath();
-    ctx.arc(nx, ny, 2.5, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.beginPath(); ctx.arc(nx, ny, 2.5, 0, Math.PI * 2); ctx.fill();
   }
-  // Connections
-  ctx.strokeStyle = 'rgba(0, 255, 0, 0.4)';
+  ctx.strokeStyle = isP2 ? 'rgba(255, 0, 255, 0.4)' : 'rgba(0, 255, 0, 0.4)';
   ctx.lineWidth = 1;
   for (let i = 0; i < nodePositions.length; i++) {
     for (let j = i + 1; j < nodePositions.length; j++) {
@@ -1201,27 +1347,33 @@ function drawPlayer() {
       ctx.stroke();
     }
   }
-
   ctx.restore();
 
   // HP bar
-  if (player.hp < player.maxHp) {
+  if (p.hp < p.maxHp) {
     const bw = 30, bh = 4;
     ctx.fillStyle = '#300';
     ctx.fillRect(x - bw/2, y + s + 6, bw, bh);
-    ctx.fillStyle = player.hp / player.maxHp > 0.3 ? '#0f0' : '#f00';
-    ctx.fillRect(x - bw/2, y + s + 6, bw * (player.hp / player.maxHp), bh);
+    ctx.fillStyle = p.hp / p.maxHp > 0.3 ? '#0f0' : '#f00';
+    ctx.fillRect(x - bw/2, y + s + 6, bw * (p.hp / p.maxHp), bh);
+  }
+
+  // Player label
+  if (gameMode === 'coop') {
+    ctx.fillStyle = isP2 ? '#f0f' : '#0ff';
+    ctx.font = '10px Courier New';
+    ctx.textAlign = 'center';
+    ctx.fillText(isP2 ? 'P2' : 'P1', x, y - s - 6);
   }
 
   // Embedding orbiters
-  const embW = player.weapons.find(w => w.id === 'embedding');
+  const embW = p.weapons.find(w => w.id === 'embedding');
   if (embW) {
     const count = getOrbiterCount(embW);
     const orbitR = getWeaponStat(embW, 'range');
     for (let i = 0; i < count; i++) {
       const a = gameTime * (2 + embW.level * 0.3) + (Math.PI * 2 / count) * i;
-      const ox = Math.cos(a) * orbitR;
-      const oy = Math.sin(a) * orbitR;
+      const ox = Math.cos(a) * orbitR, oy = Math.sin(a) * orbitR;
       ctx.beginPath();
       ctx.arc(x + ox, y + oy, 6, 0, Math.PI * 2);
       ctx.fillStyle = `hsl(${(i * 60 + gameTime * 50) % 360}, 100%, 60%)`;
@@ -1233,48 +1385,36 @@ function drawPlayer() {
   }
 }
 
+function drawPlayer() {
+  drawPlayerSprite(player, false);
+  if (player2 && gameMode === 'coop') drawPlayerSprite(player2, true);
+}
+
 function drawEnemies() {
   for (const e of enemies) {
-    if (e.phase && Math.sin(e.phaseTimer * 3) < -0.3) continue; // phased out
-
+    if (e.phase && Math.sin(e.phaseTimer * 3) < -0.3) continue;
     const { x, y } = worldToScreen(e.x, e.y);
     if (x < -100 || x > W + 100 || y < -100 || y > H + 100) continue;
-
     const alpha = e.phase ? 0.4 + 0.4 * Math.abs(Math.sin(e.phaseTimer * 3)) : 1;
     ctx.globalAlpha = alpha;
-
-    // Body
     ctx.beginPath();
     if (e.boss) {
-      // Boss: spiky circle
       const spikes = 8;
       for (let i = 0; i < spikes * 2; i++) {
         const a = (Math.PI / spikes) * i;
         const r = i % 2 === 0 ? e.size : e.size * 0.7;
-        const px = x + Math.cos(a + gameTime) * r;
-        const py = y + Math.sin(a + gameTime) * r;
+        const px = x + Math.cos(a + gameTime) * r, py = y + Math.sin(a + gameTime) * r;
         i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
       }
       ctx.closePath();
-    } else {
-      ctx.arc(x, y, e.size, 0, Math.PI * 2);
-    }
+    } else { ctx.arc(x, y, e.size, 0, Math.PI * 2); }
     ctx.fillStyle = e.flashTimer > 0 ? '#fff' : e.color;
     ctx.fill();
-
-    if (e.boss) {
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-    }
-
-    // Label
+    if (e.boss) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke(); }
     ctx.fillStyle = '#fff';
     ctx.font = `${e.boss ? 14 : 9}px Courier New`;
     ctx.textAlign = 'center';
     ctx.fillText(e.label, x, y + 3);
-
-    // HP bar for bosses and damaged enemies
     if (e.boss || e.hp < e.maxHp) {
       const bw = e.size * 2, bh = 3;
       ctx.fillStyle = '#300';
@@ -1282,7 +1422,6 @@ function drawEnemies() {
       ctx.fillStyle = e.hp / e.maxHp > 0.3 ? '#0f0' : '#f00';
       ctx.fillRect(x - bw/2, y - e.size - 8, bw * Math.max(0, e.hp / e.maxHp), bh);
     }
-
     ctx.globalAlpha = 1;
   }
 }
@@ -1290,7 +1429,6 @@ function drawEnemies() {
 function drawProjectiles() {
   for (const p of projectiles) {
     const { x, y } = worldToScreen(p.x, p.y);
-
     if (p.type === 'beam') {
       ctx.save();
       ctx.translate(x, y);
@@ -1304,7 +1442,6 @@ function drawProjectiles() {
       ctx.restore();
       continue;
     }
-
     ctx.beginPath();
     ctx.arc(x, y, p.size, 0, Math.PI * 2);
     ctx.fillStyle = p.color;
@@ -1312,8 +1449,6 @@ function drawProjectiles() {
     ctx.shadowBlur = 8;
     ctx.fill();
     ctx.shadowBlur = 0;
-
-    // Trail
     ctx.beginPath();
     ctx.moveTo(x, y);
     ctx.lineTo(x - p.vx * 0.03, y - p.vy * 0.03);
@@ -1347,12 +1482,10 @@ function drawParticles() {
     p.x += p.vx * (1/60);
     p.y += p.vy * (1/60);
     const alpha = p.life / p.maxLife;
-
     if (p.type === 'ring') {
       const { x, y } = worldToScreen(p.x, p.y);
-      const progress = 1 - alpha;
       ctx.beginPath();
-      ctx.arc(x, y, p.size * progress, 0, Math.PI * 2);
+      ctx.arc(x, y, p.size * (1 - alpha), 0, Math.PI * 2);
       ctx.strokeStyle = p.color;
       ctx.globalAlpha = alpha * 0.5;
       ctx.lineWidth = 3;
@@ -1360,7 +1493,6 @@ function drawParticles() {
       ctx.globalAlpha = 1;
       continue;
     }
-
     const { x, y } = worldToScreen(p.x, p.y);
     ctx.beginPath();
     ctx.arc(x, y, p.size * alpha, 0, Math.PI * 2);
@@ -1387,7 +1519,7 @@ function drawDamageNumbers() {
   }
 }
 
-// ===================== GAME OVER =====================
+// ===================== GAME OVER / VICTORY =====================
 function gameOver() {
   gameRunning = false;
   const screen = document.getElementById('gameover-screen');
@@ -1397,33 +1529,216 @@ function gameOver() {
   document.getElementById('final-kills').textContent = 'Enemies Deprecated: ' + kills;
   document.getElementById('final-level').textContent = 'Scaling Level: ' + playerLevel;
   document.getElementById('death-quote').textContent = choose(deathQuotes);
+  if (conn) conn.send({ type: 'game_over' });
+}
+
+function victory() {
+  gameRunning = false;
+  const screen = document.getElementById('victory-screen');
+  screen.classList.add('active');
+  document.getElementById('v-final-time').textContent = 'Survived: ' + formatTime(gameTime);
+  document.getElementById('v-final-params').textContent = 'Final Parameters: ' + formatParams(paramCount);
+  document.getElementById('v-final-kills').textContent = 'Enemies Deprecated: ' + kills;
+  document.getElementById('v-final-level').textContent = 'Scaling Level: ' + playerLevel;
+  document.getElementById('victory-quote').textContent = choose(victoryQuotes);
+  if (conn) conn.send({ type: 'victory' });
+}
+
+// ===================== NETWORKING =====================
+function generateRoomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 5; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+function setupNetworking(mode) {
+  const roomCode = generateRoomCode();
+  const peerId = 'SIAY_' + roomCode;
+  myPeerId = peerId;
+
+  document.getElementById('lobby-screen').classList.add('active');
+  document.getElementById('lobby-title').textContent = mode === 'coop' ? 'CO-OP LOBBY' : 'VERSUS LOBBY';
+  document.getElementById('lobby-mode-label').textContent = mode === 'coop'
+    ? 'Distributed Training - Two networks, one objective'
+    : 'Adversarial Training - One trains, one attacks';
+  document.getElementById('room-code-display').textContent = roomCode;
+  document.getElementById('lobby-status').textContent = 'Creating room...';
+
+  peer = new Peer(peerId, { debug: 0 });
+
+  peer.on('open', () => {
+    document.getElementById('lobby-status').textContent = 'Room created! Waiting for partner...';
+    isHost = true;
+  });
+
+  peer.on('connection', (c) => {
+    conn = c;
+    document.getElementById('lobby-status').textContent = 'Partner connected! Starting...';
+    setupConnection(c);
+    setTimeout(() => {
+      document.getElementById('lobby-screen').classList.remove('active');
+      startGame();
+    }, 1000);
+  });
+
+  peer.on('error', (err) => {
+    document.getElementById('lobby-status').textContent = 'Error: ' + err.type;
+  });
+}
+
+function joinRoom(code) {
+  const peerId = 'SIAY_' + code;
+  const myId = 'SIAY_' + generateRoomCode() + '_P2';
+
+  peer = new Peer(myId, { debug: 0 });
+
+  peer.on('open', () => {
+    document.getElementById('lobby-status').textContent = 'Connecting...';
+    conn = peer.connect(peerId, { reliable: true });
+    isHost = false;
+
+    conn.on('open', () => {
+      document.getElementById('lobby-status').textContent = 'Connected! Starting...';
+      setupConnection(conn);
+      conn.send({ type: 'join', mode: gameMode });
+      setTimeout(() => {
+        document.getElementById('lobby-screen').classList.remove('active');
+        startGame();
+      }, 1000);
+    });
+
+    conn.on('error', (err) => {
+      document.getElementById('lobby-status').textContent = 'Connection error: ' + err;
+    });
+  });
+
+  peer.on('error', (err) => {
+    document.getElementById('lobby-status').textContent = 'Error: ' + err.type + '. Check the room code.';
+  });
+}
+
+function setupConnection(c) {
+  netReady = true;
+
+  c.on('data', (data) => {
+    if (!data || !data.type) return;
+
+    if (data.type === 'keys') {
+      remoteP2Keys = data.keys;
+    }
+    if (data.type === 'game_state' && !isHost) {
+      // Client receives authoritative state from host
+      syncFromHost(data);
+    }
+    if (data.type === 'spawn_enemy' && isHost) {
+      spawnEnemy(data.enemyType, data.pos);
+    }
+    if (data.type === 'versus_upgrade' && isHost) {
+      versusEnemyDmgMult = data.dmg;
+      versusEnemyHpMult = data.hp;
+      versusEnemySpeedMult = data.spd;
+    }
+    if (data.type === 'game_over') {
+      if (!isHost) gameOver();
+    }
+    if (data.type === 'victory') {
+      if (!isHost) victory();
+    }
+    if (data.type === 'level_choice') {
+      // P2 in coop made a level choice - not implemented for simplicity
+    }
+  });
+
+  c.on('close', () => {
+    netReady = false;
+    showMeme('PARTNER DISCONNECTED');
+  });
+}
+
+// Send state to peer periodically
+let netSendTimer = 0;
+function networkSync(dt) {
+  if (!conn || !netReady) return;
+  netSendTimer -= dt;
+  if (netSendTimer > 0) return;
+  netSendTimer = 0.05; // 20 Hz
+
+  if (isHost) {
+    // Host sends compact game state to client
+    const state = {
+      type: 'game_state',
+      px: player.x, py: player.y, php: player.hp, pmhp: player.maxHp, pinv: player.invincible,
+      gt: gameTime, k: kills, lvl: playerLevel, xp, xpn: xpToNext, par: paramCount, lo: loss, ep: epoch,
+      cx: camera.x, cy: camera.y,
+      enemies: enemies.map(e => ({
+        x: e.x, y: e.y, hp: e.hp, mhp: e.maxHp, s: e.size, c: e.color, l: e.label, b: e.boss, ph: e.phase, pt: e.phaseTimer, ft: e.flashTimer,
+      })),
+      vc: versusCurrency,
+    };
+    if (player2) {
+      state.p2x = player2.x; state.p2y = player2.y;
+      state.p2hp = player2.hp; state.p2mhp = player2.maxHp;
+    }
+    conn.send(state);
+  } else {
+    // Client sends inputs
+    conn.send({ type: 'keys', keys: { ...keys } });
+  }
+}
+
+function syncFromHost(data) {
+  player.x = data.px; player.y = data.py;
+  player.hp = data.php; player.maxHp = data.pmhp;
+  player.invincible = data.pinv;
+  gameTime = data.gt; kills = data.k; playerLevel = data.lvl;
+  xp = data.xp; xpToNext = data.xpn; paramCount = data.par;
+  loss = data.lo; epoch = data.ep;
+  camera.x = data.cx; camera.y = data.cy;
+  versusCurrency = data.vc || versusCurrency;
+
+  if (data.p2x !== undefined && player2) {
+    player2.x = data.p2x; player2.y = data.p2y;
+    player2.hp = data.p2hp; player2.maxHp = data.p2mhp;
+  }
+
+  // Sync enemies
+  enemies = data.enemies.map(e => ({
+    x: e.x, y: e.y, hp: e.hp, maxHp: e.mhp, size: e.s, color: e.c,
+    label: e.l, boss: e.b, phase: e.ph, phaseTimer: e.pt, flashTimer: e.ft,
+    speed: 0, damage: 0, xp: 0, knockback: { x: 0, y: 0 }, type: '',
+  }));
 }
 
 // ===================== MAIN LOOP =====================
 let lastTime = 0;
 function gameLoop(time) {
   requestAnimationFrame(gameLoop);
-  const dt = Math.min((time - lastTime) / 1000, 0.05);
+  const rawDt = Math.min((time - lastTime) / 1000, 0.05);
   lastTime = time;
 
   if (!gameRunning || gamePaused) return;
 
+  const dt = rawDt * ngSpeedMult;
   gameTime += dt;
   frameCount++;
 
-  // Update
   updatePlayer(dt);
-  updateWeapons(dt);
-  updateProjectiles(dt);
-  updateEnemies(dt);
-  updateXPOrbs(dt);
-  updateSpawning(dt);
+  if (isHost || !netReady) {
+    updateWeapons(dt);
+    updateProjectiles(dt);
+    updateEnemies(dt);
+    updateXPOrbs(dt);
+    updateSpawning(dt);
+    updateVersus(dt);
+  }
   randomMeme();
+  networkSync(rawDt);
 
   // Screen shake
   let shakeX = 0, shakeY = 0;
   if (screenShake > 0) {
-    screenShake -= dt;
+    screenShake -= rawDt;
     shakeX = rand(-5, 5) * screenShake * 10;
     shakeY = rand(-5, 5) * screenShake * 10;
   }
@@ -1441,22 +1756,14 @@ function gameLoop(time) {
   drawParticles();
   drawDamageNumbers();
   ctx.restore();
-
   updateHUD();
 }
 
-// ===================== INIT =====================
-function startGame() {
-  document.getElementById('start-screen').style.display = 'none';
-  document.getElementById('gameover-screen').classList.remove('active');
-
-  // Reset state
-  player.x = 0; player.y = 0;
-  player.hp = 100; player.maxHp = 100;
-  player.speed = 180; player.invincible = 0;
+// ===================== INIT / START =====================
+function resetGameState() {
+  player = makePlayer();
   player.weapons = [createWeaponState('gradient_descent')];
-  player.armor = 0; player.magnetRange = 80;
-  player.regenRate = 0; player.regenTimer = 0;
+  player2 = null;
 
   enemies = []; projectiles = []; xpOrbs = []; particles = []; damageNumbers = [];
   gameTime = 0; frameCount = 0; kills = 0;
@@ -1466,14 +1773,127 @@ function startGame() {
   spawnTimer = 0; bossSpawned = {};
   screenShake = 0; memeTimer = 0;
   gamePaused = false;
-  gameRunning = true;
-
-  document.getElementById('wave-display').textContent = 'Epoch 1';
-  showMeme("TRAINING STARTED\nInitial loss: 4.000");
+  versusCurrency = 0;
+  versusEnemyDmgMult = 1.0;
+  versusEnemyHpMult = 1.0;
+  versusEnemySpeedMult = 1.0;
+  remoteP2Keys = {};
 }
 
-document.getElementById('start-btn').addEventListener('click', startGame);
-document.getElementById('restart-btn').addEventListener('click', startGame);
+function startGame() {
+  document.getElementById('menu-screen').style.display = 'none';
+  document.getElementById('gameover-screen').classList.remove('active');
+  document.getElementById('victory-screen').classList.remove('active');
+  document.getElementById('lobby-screen').classList.remove('active');
+
+  resetGameState();
+
+  if (gameMode === 'coop') {
+    player2 = makePlayer();
+    player2.weapons = [createWeaponState('gradient_descent')];
+    player2.x = 50;
+    player2.color = '#f0f';
+  }
+
+  if (gameMode === 'versus' && !isHost) {
+    document.getElementById('versus-overlay').classList.add('active');
+    document.getElementById('p2-instructions').style.display = 'block';
+    document.getElementById('ui-overlay').style.display = 'none';
+    setupVersusUI();
+    document.body.style.cursor = 'crosshair';
+  } else {
+    document.getElementById('versus-overlay').classList.remove('active');
+    document.getElementById('p2-instructions').style.display = 'none';
+    document.getElementById('ui-overlay').style.display = '';
+    document.body.style.cursor = 'none';
+  }
+
+  document.getElementById('wave-display').textContent = 'Epoch 1';
+  gameRunning = true;
+
+  if (ngPlusLevel > 0) {
+    showMeme("NG+" + ngPlusLevel + " STARTED\nSpeed: " + ngSpeedMult.toFixed(1) + "x");
+  } else {
+    showMeme("TRAINING STARTED\nInitial loss: 4.000");
+  }
+}
+
+function goToMenu() {
+  document.getElementById('gameover-screen').classList.remove('active');
+  document.getElementById('victory-screen').classList.remove('active');
+  document.getElementById('versus-overlay').classList.remove('active');
+  document.getElementById('p2-instructions').style.display = 'none';
+  document.getElementById('ui-overlay').style.display = '';
+  document.getElementById('menu-screen').style.display = 'flex';
+  document.body.style.cursor = 'default';
+  gameRunning = false;
+  ngPlusLevel = 0;
+  ngSpeedMult = 1.0;
+  if (peer) { peer.destroy(); peer = null; conn = null; netReady = false; }
+}
+
+// ===================== MENU EVENT HANDLERS =====================
+document.getElementById('solo-btn').addEventListener('click', () => {
+  gameMode = 'solo';
+  isHost = true;
+  document.getElementById('menu-screen').style.display = 'none';
+  startGame();
+});
+
+document.getElementById('coop-btn').addEventListener('click', () => {
+  gameMode = 'coop';
+  document.getElementById('menu-screen').style.display = 'none';
+  setupNetworking('coop');
+});
+
+document.getElementById('versus-btn').addEventListener('click', () => {
+  gameMode = 'versus';
+  document.getElementById('menu-screen').style.display = 'none';
+  setupNetworking('versus');
+});
+
+document.getElementById('join-btn').addEventListener('click', () => {
+  const code = document.getElementById('join-input').value.trim().toUpperCase();
+  if (code.length >= 4) joinRoom(code);
+  else document.getElementById('lobby-status').textContent = 'Please enter a valid room code';
+});
+
+document.getElementById('join-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.stopPropagation();
+    document.getElementById('join-btn').click();
+  }
+});
+
+document.getElementById('lobby-back').addEventListener('click', () => {
+  document.getElementById('lobby-screen').classList.remove('active');
+  document.getElementById('menu-screen').style.display = 'flex';
+  if (peer) { peer.destroy(); peer = null; conn = null; netReady = false; }
+});
+
+document.getElementById('restart-btn').addEventListener('click', () => {
+  ngPlusLevel = 0;
+  ngSpeedMult = 1.0;
+  startGame();
+});
+
+document.getElementById('menu-btn-go').addEventListener('click', goToMenu);
+document.getElementById('v-menu-btn').addEventListener('click', goToMenu);
+
+document.getElementById('ngplus-btn').addEventListener('click', () => {
+  ngPlusLevel++;
+  ngSpeedMult = Math.pow(1.5, ngPlusLevel);
+  document.getElementById('victory-screen').classList.remove('active');
+  startGame();
+});
+
+// Copy room code on click
+document.getElementById('room-code-display').addEventListener('click', () => {
+  const code = document.getElementById('room-code-display').textContent;
+  navigator.clipboard.writeText(code).then(() => {
+    document.getElementById('lobby-status').textContent = 'Room code copied to clipboard!';
+  });
+});
 
 // Start render loop
 requestAnimationFrame(gameLoop);
