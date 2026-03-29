@@ -511,7 +511,12 @@ const SPAWN_COSTS = {
 
 // ===================== INPUT =====================
 const keys = {};
-window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; e.preventDefault(); });
+window.addEventListener('keydown', e => {
+  // Don't capture keys when typing in input fields
+  if (e.target.tagName === 'INPUT') return;
+  keys[e.key.toLowerCase()] = true;
+  e.preventDefault();
+});
 window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 
 // Click handling for versus mode
@@ -1557,7 +1562,9 @@ function setupNetworking(mode) {
   const peerId = 'SIAY_' + roomCode;
   myPeerId = peerId;
 
-  document.getElementById('lobby-screen').classList.add('active');
+  // Show lobby immediately with room code
+  const lobbyEl = document.getElementById('lobby-screen');
+  lobbyEl.classList.add('active');
   document.getElementById('lobby-title').textContent = mode === 'coop' ? 'CO-OP LOBBY' : 'VERSUS LOBBY';
   document.getElementById('lobby-mode-label').textContent = mode === 'coop'
     ? 'Distributed Training - Two networks, one objective'
@@ -1565,7 +1572,18 @@ function setupNetworking(mode) {
   document.getElementById('room-code-display').textContent = roomCode;
   document.getElementById('lobby-status').textContent = 'Creating room...';
 
-  peer = new Peer(peerId, { debug: 0 });
+  // Check if PeerJS loaded
+  if (typeof Peer === 'undefined') {
+    document.getElementById('lobby-status').textContent = 'Error: PeerJS failed to load. Check internet connection and try again.';
+    return;
+  }
+
+  try {
+    peer = new Peer(peerId, { debug: 0 });
+  } catch(e) {
+    document.getElementById('lobby-status').textContent = 'Error creating peer: ' + e.message;
+    return;
+  }
 
   peer.on('open', () => {
     document.getElementById('lobby-status').textContent = 'Room created! Waiting for partner...';
@@ -1577,13 +1595,13 @@ function setupNetworking(mode) {
     document.getElementById('lobby-status').textContent = 'Partner connected! Starting...';
     setupConnection(c);
     setTimeout(() => {
-      document.getElementById('lobby-screen').classList.remove('active');
+      lobbyEl.classList.remove('active');
       startGame();
     }, 1000);
   });
 
   peer.on('error', (err) => {
-    document.getElementById('lobby-status').textContent = 'Error: ' + err.type;
+    document.getElementById('lobby-status').textContent = 'Error: ' + err.type + '. Try refreshing the page.';
   });
 }
 
