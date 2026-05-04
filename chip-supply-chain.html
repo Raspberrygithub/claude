@@ -56,6 +56,22 @@
     padding: 4px 10px; border-radius: 5px; cursor: pointer; font-size: 11px;
   }
   #controls button:hover { background: #283354; }
+  #controls input, #controls select {
+    background: #0f1426; border: 1px solid #2e3a5e; color: #e6e9f0;
+    padding: 5px 8px; border-radius: 5px; font-size: 12px; width: 100%;
+    margin-top: 6px; font-family: inherit;
+  }
+  #controls input:focus, #controls select:focus { outline: none; border-color: #6ea8ff; }
+  #search-results {
+    max-height: 180px; overflow-y: auto; margin-top: 6px;
+    border-top: 1px solid #232c48; padding-top: 6px;
+  }
+  #search-results .sr {
+    padding: 4px 6px; cursor: pointer; border-radius: 4px;
+    font-size: 11px; display: flex; justify-content: space-between;
+  }
+  #search-results .sr:hover { background: #1d2640; }
+  #search-results .sr .c { color: #6c7693; font-size: 10px; }
   #legend {
     position: fixed;
     bottom: 18px; left: 18px;
@@ -175,6 +191,11 @@
     <button id="reset">Reset view</button>
     <button id="fit">Fit to screen</button>
   </div>
+  <input id="search" placeholder="🔍 Search company..." />
+  <select id="country-filter">
+    <option value="">All regions</option>
+  </select>
+  <div id="search-results"></div>
 </div>
 
 <div id="legend">
@@ -606,6 +627,62 @@ fitToScreen();
 
 document.getElementById("reset").onclick = () => fitToScreen();
 document.getElementById("fit").onclick   = () => fitToScreen();
+
+// ============================================================
+// SEARCH + COUNTRY FILTER
+// ============================================================
+
+// Build country filter
+const countries = Array.from(new Set(NODES.map(n => {
+  // simplify country labels for filter
+  return n.country.split("/")[0].trim();
+}))).sort();
+const cf = document.getElementById("country-filter");
+countries.forEach(c => {
+  const o = document.createElement("option"); o.value = c; o.textContent = c;
+  cf.appendChild(o);
+});
+
+cf.onchange = () => {
+  const v = cf.value;
+  if (!v) { clearHighlight(); return; }
+  const matchIds = new Set(NODES.filter(n => n.country.startsWith(v)).map(n => n.id));
+  nodeSel.classed("dim", n => !matchIds.has(n.id));
+  linkSel.classed("dim", ([s,t]) => !matchIds.has(s) && !matchIds.has(t));
+};
+
+const searchInput = document.getElementById("search");
+const searchResults = document.getElementById("search-results");
+searchInput.oninput = () => {
+  const q = searchInput.value.toLowerCase().trim();
+  searchResults.innerHTML = "";
+  if (!q) return;
+  const matches = NODES.filter(n =>
+    n.name.toLowerCase().includes(q) || n.id.toLowerCase().includes(q)
+  ).slice(0, 12);
+  matches.forEach(n => {
+    const div = document.createElement("div");
+    div.className = "sr";
+    const layer = LAYERS.find(l => l.id === n.layer);
+    div.innerHTML = `<span>${n.name}</span><span class="c">${layer ? layer.name.split(" ")[0] : ""}</span>`;
+    div.onclick = () => zoomToNode(n);
+    searchResults.appendChild(div);
+  });
+};
+
+function zoomToNode(n) {
+  const w = window.innerWidth, h = window.innerHeight;
+  const scale = 1.2;
+  const tx = w/2 - n.x * scale;
+  const ty = h/2 - n.y * scale;
+  svg.transition().duration(700).call(
+    zoom.transform,
+    d3.zoomIdentity.translate(tx, ty).scale(scale)
+  );
+  highlightConnections(n);
+  searchResults.innerHTML = "";
+  searchInput.value = "";
+}
 
 // ============================================================
 // INTERACTION: highlight connections
