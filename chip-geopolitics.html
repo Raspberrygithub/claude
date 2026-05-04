@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chip Supply Chain — Geopolitics</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    background: #07090f;
+    color: #e6e9f0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    overflow: hidden;
+  }
+  #header {
+    position: fixed; top: 0; left: 0; right: 0;
+    padding: 14px 22px;
+    background: linear-gradient(180deg, rgba(7,9,15,0.95) 0%, rgba(7,9,15,0.6) 100%);
+    z-index: 10;
+    display: flex; justify-content: space-between; align-items: center;
+    pointer-events: none;
+  }
+  #header h1 { font-size: 20px; font-weight: 600; letter-spacing: 0.3px; }
+  #header h1 span { color: #ff7a8a; }
+  #header .meta { font-size: 12px; color: #8b93a7; }
+  #controls {
+    position: fixed; top: 60px; left: 18px;
+    background: rgba(15, 19, 32, 0.92);
+    border: 1px solid #243049; border-radius: 10px;
+    padding: 12px 14px; font-size: 12px; z-index: 10;
+    max-width: 320px; line-height: 1.55;
+  }
+  #controls b { color: #ff7a8a; }
+  #controls .row { display:flex; gap:6px; align-items:center; margin-top: 6px; }
+  #controls button {
+    background: #1a2238; border: 1px solid #2e3a5e; color: #e6e9f0;
+    padding: 4px 10px; border-radius: 5px; cursor: pointer; font-size: 11px;
+  }
+  #controls button:hover { background: #243049; }
+  #controls button.active { background: #ff7a8a; color: #07090f; border-color: #ff7a8a; }
+  #legend {
+    position: fixed; bottom: 18px; left: 18px;
+    background: rgba(15, 19, 32, 0.92);
+    border: 1px solid #243049; border-radius: 10px;
+    padding: 12px 14px; font-size: 11px; z-index: 10;
+    max-width: 360px;
+  }
+  #legend .lt { font-weight: 600; color: #ff7a8a; margin-bottom: 6px; font-size: 12px; }
+  #legend .li { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+  #legend .sw { width: 12px; height: 12px; border-radius: 3px; }
+  #tooltip {
+    position: fixed; pointer-events: none;
+    background: rgba(10,14,24,0.96);
+    border: 1px solid #2e3a5e; border-radius: 8px;
+    padding: 10px 12px; font-size: 12px; line-height: 1.5;
+    max-width: 320px; z-index: 100; opacity: 0;
+    transition: opacity 0.12s;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  }
+  #tooltip .name { font-weight: 600; font-size: 14px; color: #e6e9f0; }
+  #tooltip .cat { color: #ff7a8a; font-size: 11px; margin-top: 2px; }
+  #tooltip .desc { color: #b3bccd; margin-top: 6px; }
+  svg { display: block; cursor: grab; }
+  svg:active { cursor: grabbing; }
+  .layer-title { fill: #e6e9f0; font-size: 16px; font-weight: 700; }
+  .layer-sub { fill: #6c7693; font-size: 11px; }
+  .layer-warn { fill: #ff7a8a; font-size: 11px; font-style: italic; }
+  .country-label { fill: #e6e9f0; font-size: 11px; font-weight: 600; }
+  .country-share { fill: #fff; font-size: 14px; font-weight: 700; }
+  .company-label { fill: #fff; font-size: 9px; pointer-events: none; }
+  .bar-bg { fill: rgba(255,255,255,0.04); stroke: rgba(255,255,255,0.08); }
+  .layer-card {
+    fill: rgba(255,255,255,0.02);
+    stroke: rgba(255,255,255,0.07);
+    stroke-width: 1;
+    rx: 12; ry: 12;
+  }
+  .layer-card.choke { stroke: #ff7a8a; stroke-width: 2; stroke-dasharray: 4 3; }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <h1><span>◆</span> Geopolitics of the Chip Supply Chain</h1>
+  <div class="meta">Country share of global capacity in each layer • dashed border = chokepoint layer</div>
+</div>
+
+<div id="controls">
+  <b>Navigation</b><br>
+  Scroll to zoom • Drag to pan<br>
+  Each block is a supply-chain layer. Each colored bar is a country's share of global capacity.
+  <div class="row">
+    <button id="reset">Reset view</button>
+    <button id="modeShare" class="active">Capacity share</button>
+    <button id="modeRevenue">Revenue weight</button>
+  </div>
+  <div style="margin-top:10px; font-size:11px; color:#b3bccd;">
+    Data is approximate (2024-25 estimates) and rounded to highlight concentration. Sources: IC Insights, TrendForce, SEMI, company reports.
+  </div>
+</div>
+
+<div id="legend">
+  <div class="lt">Country / region</div>
+  <div id="legend-items"></div>
+  <div class="lt" style="margin-top:10px">Why this matters</div>
+  <div style="font-size:11px; color:#b3bccd">
+    Layers with extreme concentration in a single country (Taiwan-foundry, Netherlands-EUV, S. Korea-HBM) are the brittle links. A geopolitical shock to any of them ripples through every downstream chip — including the AI ones.
+  </div>
+</div>
+
+<div id="tooltip"></div>
+
+<svg id="viz"></svg>
+
+<script>
+// ============================================================
+// Country shares (% of global capacity / output / revenue) per layer.
+// Numbers are approximate, sourced from public industry reports (2024-25).
+// They are intended to highlight orders of magnitude and concentration,
+// not to be precise to the percentage point.
+// ============================================================
+
+const COUNTRY_COLORS = {
+  "Taiwan":      "#5fe6a8",
+  "South Korea": "#5bb4d9",
+  "United States":"#6ea8ff",
+  "Japan":       "#f0c674",
+  "Netherlands": "#ff9f5b",
+  "Germany":     "#a89cff",
+  "China":       "#ff7a8a",
+  "Other Europe":"#9b6dd9",
+  "Other":       "#7d8aa8",
+  "Israel":      "#5be0d9",
+  "Singapore":   "#d9b45b",
+  "Malaysia":    "#d97f5b"
+};
+
+// Layer definition. shares = [{country, pct, players: [...]}]
+// pct should sum to ~100 per layer.
+const LAYERS = [
+  {
+    id: "wafers", name: "Silicon wafers (300mm)", choke: true,
+    note: "Japan supplies more than half of all 300mm wafers.",
+    shares: [
+      { country: "Japan",        pct: 56, players: ["Shin-Etsu (~28%)","SUMCO (~22%)","Other Japan"] },
+      { country: "Taiwan",       pct: 16, players: ["GlobalWafers"] },
+      { country: "Germany",      pct: 13, players: ["Siltronic"] },
+      { country: "South Korea",  pct: 10, players: ["SK Siltron"] },
+      { country: "China",        pct:  4, players: ["NSIG, Zing"] },
+      { country: "Other",        pct:  1, players: [] }
+    ]
+  },
+  {
+    id: "photoresist", name: "EUV photoresist & specialty chemicals", choke: true,
+    note: "~90% of advanced photoresist comes from a handful of Japanese firms.",
+    shares: [
+      { country: "Japan",        pct: 90, players: ["JSR","Tokyo Ohka Kogyo","Shin-Etsu","Sumitomo","Fujifilm"] },
+      { country: "United States",pct:  6, players: ["DuPont","Inpria"] },
+      { country: "South Korea",  pct:  3, players: ["Dongjin Semichem"] },
+      { country: "Other",        pct:  1, players: [] }
+    ]
+  },
+  {
+    id: "gases", name: "Specialty gases (neon, helium, rare gases)", choke: false,
+    note: "Ukraine war disrupted neon supply; market has since diversified.",
+    shares: [
+      { country: "United States",pct: 35, players: ["Air Products","Linde US"] },
+      { country: "Germany",      pct: 25, players: ["Linde","Messer"] },
+      { country: "Japan",        pct: 15, players: ["Taiyo Nippon Sanso","Iwatani"] },
+      { country: "China",        pct: 15, players: ["various"] },
+      { country: "Other Europe", pct: 10, players: ["Air Liquide (FR)"] }
+    ]
+  },
+  {
+    id: "euv", name: "EUV lithography systems", choke: true,
+    note: "100% Netherlands. ASML is the single hardest chokepoint in the entire industry.",
+    shares: [
+      { country: "Netherlands",  pct: 100, players: ["ASML — sole supplier worldwide"] }
+    ]
+  },
+  {
+    id: "duv", name: "DUV lithography & legacy steppers", choke: false,
+    note: "ASML still dominates DUV; Canon and Nikon serve mature nodes.",
+    shares: [
+      { country: "Netherlands",  pct: 75, players: ["ASML"] },
+      { country: "Japan",        pct: 22, players: ["Canon","Nikon"] },
+      { country: "China",        pct:  3, players: ["SMEE (catching up at 28nm)"] }
+    ]
+  },
+  {
+    id: "wfe-other", name: "Other wafer-fab equipment (etch / deposition / metrology)", choke: false,
+    note: "US firms dominate non-litho equipment; Japan is the strong #2.",
+    shares: [
+      { country: "United States",pct: 50, players: ["Applied Materials","Lam Research","KLA"] },
+      { country: "Japan",        pct: 31, players: ["Tokyo Electron","SCREEN","Advantest"] },
+      { country: "Netherlands",  pct:  8, players: ["ASMI"] },
+      { country: "China",        pct:  9, players: ["Naura","AMEC","Piotech"] },
+      { country: "Other",        pct:  2, players: [] }
+    ]
+  },
+  {
+    id: "eda", name: "EDA tools & CPU IP", choke: true,
+    note: "Three US firms own ~75% of EDA. Arm IP is in essentially every smartphone.",
+    shares: [
+      { country: "United States",pct: 76, players: ["Synopsys","Cadence","Siemens EDA (Mentor)"] },
+      { country: "United Kingdom",pct: 18, players: ["Arm Holdings"] },
+      { country: "Other",        pct:  4, players: ["SiFive (RISC-V)","Imagination"] },
+      { country: "China",        pct:  2, players: ["Empyrean","Primarius"] }
+    ]
+  },
+  {
+    id: "fabless", name: "Fabless chip design (revenue share)", choke: false,
+    note: "US fabless dominate. Taiwan punches above its weight via MediaTek.",
+    shares: [
+      { country: "United States",pct: 65, players: ["NVIDIA","Broadcom","AMD","Qualcomm","Apple-internal","Marvell"] },
+      { country: "Taiwan",       pct: 20, players: ["MediaTek","Realtek","Novatek"] },
+      { country: "China",        pct:  9, players: ["HiSilicon (Huawei)","UNISOC"] },
+      { country: "Other",        pct:  6, players: ["Israel, Europe"] }
+    ]
+  },
+  {
+    id: "leading-foundry", name: "Leading-edge foundry (≤7nm)", choke: true,
+    note: "TSMC fabricates roughly 90% of the world's leading-edge logic — and 100% of the AI training chips.",
+    shares: [
+      { country: "Taiwan",       pct: 90, players: ["TSMC"] },
+      { country: "South Korea",  pct:  8, players: ["Samsung Foundry"] },
+      { country: "United States",pct:  2, players: ["Intel Foundry (ramping)"] }
+    ]
+  },
+  {
+    id: "mature-foundry", name: "Mature-node foundry (≥28nm)", choke: false,
+    note: "China is racing to dominate mature nodes; >50% of new mature capacity through 2027 is being built in China.",
+    shares: [
+      { country: "Taiwan",       pct: 45, players: ["TSMC","UMC","VIS","PSMC"] },
+      { country: "China",        pct: 30, players: ["SMIC","Hua Hong","Nexchip"] },
+      { country: "United States",pct: 12, players: ["GlobalFoundries"] },
+      { country: "South Korea",  pct:  6, players: ["Samsung","DB HiTek"] },
+      { country: "Israel",       pct:  3, players: ["Tower Semi"] },
+      { country: "Other",        pct:  4, players: [] }
+    ]
+  },
+  {
+    id: "dram", name: "DRAM manufacturing", choke: true,
+    note: "Three companies make >95% of DRAM. Two are Korean.",
+    shares: [
+      { country: "South Korea",  pct: 70, players: ["Samsung (~42%)","SK Hynix (~28%)"] },
+      { country: "United States",pct: 25, players: ["Micron"] },
+      { country: "China",        pct:  4, players: ["CXMT (rising fast)"] },
+      { country: "Taiwan",       pct:  1, players: ["Nanya"] }
+    ]
+  },
+  {
+    id: "hbm", name: "High-Bandwidth Memory (HBM)", choke: true,
+    note: "SK Hynix has been the sole-source of premium HBM3E to NVIDIA in volume.",
+    shares: [
+      { country: "South Korea",  pct: 90, players: ["SK Hynix (~55%)","Samsung (~35%)"] },
+      { country: "United States",pct: 10, players: ["Micron (ramping)"] }
+    ]
+  },
+  {
+    id: "nand", name: "NAND flash manufacturing", choke: false,
+    note: "More diversified than DRAM; six players globally.",
+    shares: [
+      { country: "South Korea",  pct: 50, players: ["Samsung","SK Hynix (incl. Solidigm)"] },
+      { country: "Japan",        pct: 19, players: ["Kioxia"] },
+      { country: "United States",pct: 23, players: ["Micron","Western Digital"] },
+      { country: "China",        pct:  8, players: ["YMTC"] }
+    ]
+  },
+  {
+    id: "advanced-pkg", name: "Advanced packaging (CoWoS / SoIC / HBM stacking)", choke: true,
+    note: "TSMC's CoWoS is the single biggest capacity bottleneck for AI chips through 2025.",
+    shares: [
+      { country: "Taiwan",       pct: 80, players: ["TSMC CoWoS","ASE","SPIL"] },
+      { country: "United States",pct: 12, players: ["Amkor (AZ)","Intel"] },
+      { country: "South Korea",  pct:  6, players: ["Samsung"] },
+      { country: "China",        pct:  2, players: ["JCET","TongFu"] }
+    ]
+  },
+  {
+    id: "osat", name: "OSAT — packaging & test (overall)", choke: false,
+    note: "Taiwan + China together host ~75% of conventional packaging.",
+    shares: [
+      { country: "Taiwan",       pct: 50, players: ["ASE","SPIL","Powertech","ChipMOS"] },
+      { country: "China",        pct: 25, players: ["JCET","TongFu","Hua Tian"] },
+      { country: "United States",pct: 13, players: ["Amkor"] },
+      { country: "Singapore",    pct:  6, players: ["UTAC"] },
+      { country: "Malaysia",     pct:  4, players: ["Inari","Unisem"] },
+      { country: "Other",        pct:  2, players: [] }
+    ]
+  },
+  {
+    id: "test", name: "Semiconductor ATE (automated test equipment)", choke: false,
+    note: "Two firms split most of the test market — critical for HBM and AI.",
+    shares: [
+      { country: "Japan",        pct: 55, players: ["Advantest"] },
+      { country: "United States",pct: 38, players: ["Teradyne","Cohu"] },
+      { country: "Other",        pct:  7, players: [] }
+    ]
+  },
+  {
+    id: "analog", name: "Analog & power semiconductors", choke: false,
+    note: "Less concentrated; Europe is strong here vs. logic.",
+    shares: [
+      { country: "United States",pct: 50, players: ["Texas Instruments","ADI","ON Semi","Microchip"] },
+      { country: "Germany",      pct: 18, players: ["Infineon"] },
+      { country: "Other Europe", pct: 14, players: ["STMicro","NXP"] },
+      { country: "Japan",        pct: 12, players: ["Renesas","Rohm"] },
+      { country: "China",        pct:  4, players: ["Will Semi","SG Micro"] },
+      { country: "Taiwan",       pct:  2, players: [] }
+    ]
+  },
+  {
+    id: "ai-accelerators", name: "AI training accelerators (revenue)", choke: true,
+    note: "NVIDIA owns ~85-90% of merchant AI training silicon. The most concentrated layer in the entire stack.",
+    shares: [
+      { country: "United States",pct: 96, players: ["NVIDIA (~88%)","AMD","Intel","Google TPU","AWS Trainium","Meta MTIA"] },
+      { country: "China",        pct:  3, players: ["Huawei Ascend","Cambricon"] },
+      { country: "Other",        pct:  1, players: ["Cerebras","Graphcore","Tenstorrent"] }
+    ]
+  }
+];
+
+// ============================================================
+// LAYOUT
+// ============================================================
+
+// Each layer is a "card". Cards are tiled in a grid 3 wide.
+const COLS = 3;
+const CARD_W = 720;
+const CARD_H = 360;
+const GAP_X = 60;
+const GAP_Y = 70;
+const PAD = 90;
+
+const rows = Math.ceil(LAYERS.length / COLS);
+const W = PAD * 2 + COLS * CARD_W + (COLS - 1) * GAP_X;
+const H = PAD * 2 + rows * CARD_H + (rows - 1) * GAP_Y;
+
+// Render
+const svg = d3.select("#viz")
+  .attr("width", window.innerWidth)
+  .attr("height", window.innerHeight)
+  .attr("viewBox", [0, 0, window.innerWidth, window.innerHeight]);
+const g = svg.append("g");
+
+const tip = document.getElementById("tooltip");
+function showTip(event, html) {
+  tip.innerHTML = html;
+  tip.style.opacity = 1;
+  moveTip(event);
+}
+function moveTip(event) {
+  const x = event.clientX + 16, y = event.clientY + 16;
+  tip.style.left = Math.min(x, window.innerWidth - 340) + "px";
+  tip.style.top = Math.min(y, window.innerHeight - 220) + "px";
+}
+function hideTip() { tip.style.opacity = 0; }
+
+// Render each layer card
+LAYERS.forEach((layer, i) => {
+  const col = i % COLS;
+  const row = Math.floor(i / COLS);
+  const x = PAD + col * (CARD_W + GAP_X);
+  const y = PAD + row * (CARD_H + GAP_Y);
+
+  const card = g.append("g").attr("transform", `translate(${x},${y})`);
+
+  card.append("rect")
+    .attr("class", "layer-card" + (layer.choke ? " choke" : ""))
+    .attr("width", CARD_W).attr("height", CARD_H);
+
+  card.append("text")
+    .attr("class","layer-title")
+    .attr("x", 24).attr("y", 38)
+    .text(layer.name);
+
+  if (layer.choke) {
+    card.append("text")
+      .attr("x", CARD_W - 24).attr("y", 38)
+      .attr("text-anchor","end")
+      .attr("class","layer-warn")
+      .text("⚠ chokepoint");
+  }
+
+  card.append("text")
+    .attr("class","layer-sub")
+    .attr("x", 24).attr("y", 60)
+    .text(layer.note);
+
+  // Stacked horizontal bar of country shares
+  const barX = 24, barY = 90;
+  const barW = CARD_W - 48;
+  const barH = 60;
+
+  card.append("rect")
+    .attr("class","bar-bg")
+    .attr("x", barX).attr("y", barY)
+    .attr("width", barW).attr("height", barH)
+    .attr("rx", 4).attr("ry", 4);
+
+  let cursor = barX;
+  layer.shares.forEach(s => {
+    const w = (s.pct / 100) * barW;
+    const seg = card.append("g");
+    seg.append("rect")
+      .attr("x", cursor).attr("y", barY)
+      .attr("width", w).attr("height", barH)
+      .attr("fill", COUNTRY_COLORS[s.country] || "#7d8aa8")
+      .attr("fill-opacity", 0.85)
+      .style("cursor","pointer")
+      .on("mouseover", e => showTip(e, `
+        <div class="name">${s.country}</div>
+        <div class="cat">${layer.name}</div>
+        <div class="desc"><b>${s.pct}%</b> of global capacity / revenue.</div>
+        ${s.players.length ? `<div class="desc">${s.players.join(", ")}</div>` : ""}
+      `))
+      .on("mousemove", moveTip).on("mouseout", hideTip);
+
+    if (w > 36) {
+      seg.append("text")
+        .attr("class","country-share")
+        .attr("x", cursor + w/2).attr("y", barY + barH/2 + 5)
+        .attr("text-anchor","middle")
+        .text(s.pct + "%");
+    }
+    cursor += w;
+  });
+
+  // Country labels below bar
+  cursor = barX;
+  layer.shares.forEach(s => {
+    const w = (s.pct / 100) * barW;
+    if (w > 50) {
+      card.append("text")
+        .attr("class","country-label")
+        .attr("x", cursor + w/2).attr("y", barY + barH + 18)
+        .attr("text-anchor","middle")
+        .text(s.country);
+    }
+    cursor += w;
+  });
+
+  // Player list below
+  const playersY = barY + barH + 44;
+  let py = playersY;
+  layer.shares.slice(0, 4).forEach(s => {
+    if (!s.players.length) return;
+    const line = card.append("text")
+      .attr("x", 24).attr("y", py)
+      .attr("font-size", 11)
+      .attr("fill", "#b3bccd");
+    line.append("tspan")
+      .attr("font-weight", "700")
+      .attr("fill", COUNTRY_COLORS[s.country] || "#7d8aa8")
+      .text(s.country + ": ");
+    line.append("tspan").text(s.players.join(", "));
+    py += 16;
+  });
+});
+
+// Title at bottom: total US/China/Taiwan/Korea/Japan/EU summary chart
+function summarySection() {
+  const sy = PAD + rows * CARD_H + (rows - 1) * GAP_Y + 50;
+  const totals = {};
+  LAYERS.forEach(l => l.shares.forEach(s => {
+    totals[s.country] = (totals[s.country] || 0) + s.pct;
+  }));
+  const arr = Object.entries(totals)
+    .sort((a,b) => b[1] - a[1]);
+  const grandTotal = d3.sum(arr, d => d[1]);
+
+  const sec = g.append("g").attr("transform", `translate(${PAD}, ${sy})`);
+  sec.append("text")
+    .attr("class","layer-title")
+    .attr("x", 0).attr("y", 0)
+    .text("◆ Aggregate: average share across all layers");
+  sec.append("text")
+    .attr("class","layer-sub")
+    .attr("x", 0).attr("y", 22)
+    .text("Crude average that ignores layer importance — but illustrates how broadly each region is represented across the whole supply chain.");
+
+  const totalW = (CARD_W * COLS) + GAP_X * (COLS - 1);
+  const barH = 70, barY = 50;
+  sec.append("rect")
+    .attr("class","bar-bg")
+    .attr("x", 0).attr("y", barY)
+    .attr("width", totalW).attr("height", barH)
+    .attr("rx", 4).attr("ry", 4);
+
+  let cursor = 0;
+  arr.forEach(([country, val]) => {
+    const w = (val / grandTotal) * totalW;
+    sec.append("rect")
+      .attr("x", cursor).attr("y", barY)
+      .attr("width", w).attr("height", barH)
+      .attr("fill", COUNTRY_COLORS[country] || "#7d8aa8")
+      .attr("fill-opacity", 0.85)
+      .on("mouseover", e => showTip(e, `
+        <div class="name">${country}</div>
+        <div class="desc">~${(val/grandTotal*100).toFixed(1)}% averaged share across the ${LAYERS.length} layers.</div>
+      `))
+      .on("mousemove", moveTip).on("mouseout", hideTip);
+    if (w > 50) {
+      sec.append("text")
+        .attr("class","country-share")
+        .attr("x", cursor + w/2).attr("y", barY + barH/2 + 5)
+        .attr("text-anchor","middle")
+        .text((val/grandTotal*100).toFixed(0) + "%");
+      sec.append("text")
+        .attr("class","country-label")
+        .attr("x", cursor + w/2).attr("y", barY + barH + 20)
+        .attr("text-anchor","middle")
+        .text(country);
+    }
+    cursor += w;
+  });
+
+  return sy + barY + barH + 60;
+}
+const newH = summarySection();
+const TOTAL_H = Math.max(H, newH);
+
+// ============================================================
+// ZOOM / PAN
+// ============================================================
+
+const TOTAL_W = W;
+const zoom = d3.zoom().scaleExtent([0.1, 4])
+  .on("zoom", e => g.attr("transform", e.transform));
+svg.call(zoom);
+
+function fitToScreen() {
+  const w = window.innerWidth, h = window.innerHeight;
+  const scale = Math.min(w / TOTAL_W, h / TOTAL_H) * 0.95;
+  const tx = (w - TOTAL_W * scale) / 2;
+  const ty = (h - TOTAL_H * scale) / 2;
+  svg.transition().duration(700).call(
+    zoom.transform,
+    d3.zoomIdentity.translate(tx, ty).scale(scale)
+  );
+}
+fitToScreen();
+document.getElementById("reset").onclick = fitToScreen;
+
+// Mode toggles are visual only here (data shown is concentration share)
+const modeShare = document.getElementById("modeShare");
+const modeRev = document.getElementById("modeRevenue");
+modeShare.onclick = () => { modeShare.classList.add("active"); modeRev.classList.remove("active"); };
+modeRev.onclick   = () => { modeRev.classList.add("active");   modeShare.classList.remove("active");
+  alert("Revenue-weighted view: same layer ordering — but note that AI accelerators and HBM are now disproportionately large vs. e.g. analog. The geometry would change significantly in a TAM-weighted view.");
+};
+
+// Legend
+const legendItems = d3.select("#legend-items");
+Object.entries(COUNTRY_COLORS).forEach(([country, color]) => {
+  const li = legendItems.append("div").attr("class","li");
+  li.append("div").attr("class","sw").style("background", color);
+  li.append("span").text(country);
+});
+
+window.addEventListener("resize", () => {
+  svg.attr("width", window.innerWidth).attr("height", window.innerHeight)
+     .attr("viewBox", [0, 0, window.innerWidth, window.innerHeight]);
+});
+</script>
+</body>
+</html>

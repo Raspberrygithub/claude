@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Chip Supply Chain</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    background: #07090f;
+    color: #e6e9f0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    overflow: hidden;
+  }
+  #header {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    padding: 14px 22px;
+    background: linear-gradient(180deg, rgba(7,9,15,0.95) 0%, rgba(7,9,15,0.6) 100%);
+    z-index: 10;
+    display: flex; justify-content: space-between; align-items: center;
+    pointer-events: none;
+  }
+  #header h1 {
+    font-size: 20px; font-weight: 600; letter-spacing: 0.3px;
+  }
+  #header h1 span { color: #5fe6a8; }
+  #header .meta { font-size: 12px; color: #8b93a7; }
+  #controls, #legend {
+    position: fixed;
+    background: rgba(15, 19, 32, 0.92);
+    border: 1px solid #243049;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 12px;
+    z-index: 10;
+    line-height: 1.55;
+  }
+  #controls { top: 60px; left: 18px; max-width: 300px; }
+  #controls b { color: #5fe6a8; }
+  #controls .row { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
+  #controls button {
+    background: #1a2238; border: 1px solid #2e3a5e; color: #e6e9f0;
+    padding: 4px 10px; border-radius: 5px; cursor: pointer; font-size: 11px;
+  }
+  #controls button:hover { background: #243049; }
+  #controls input, #controls select {
+    background: #0a1020; border: 1px solid #2e3a5e; color: #e6e9f0;
+    padding: 5px 8px; border-radius: 5px; font-size: 12px; width: 100%;
+    margin-top: 6px; font-family: inherit;
+  }
+  #controls input:focus, #controls select:focus { outline: none; border-color: #5fe6a8; }
+  #search-results {
+    max-height: 180px; overflow-y: auto; margin-top: 6px;
+    border-top: 1px solid #243049; padding-top: 6px;
+  }
+  #search-results .sr {
+    padding: 4px 6px; cursor: pointer; border-radius: 4px;
+    font-size: 11px; display: flex; justify-content: space-between;
+  }
+  #search-results .sr:hover { background: #1a2238; }
+  #search-results .sr .c { color: #6c7693; font-size: 10px; }
+  #legend { bottom: 18px; left: 18px; max-width: 320px; }
+  #legend .lt { font-weight: 600; color: #5fe6a8; margin-bottom: 6px; font-size: 12px; }
+  #legend .li { display: flex; align-items: center; gap: 8px; margin-top: 4px; font-size: 11px; }
+  #legend .sw { width: 12px; height: 12px; border-radius: 50%; }
+  #legend .scale { display: flex; align-items: end; gap: 6px; margin-top: 8px; font-size: 11px; }
+  #legend .scale .c { background: #5fe6a8; opacity: 0.6; border-radius: 50%; }
+  #tooltip {
+    position: fixed; pointer-events: none;
+    background: rgba(10, 14, 24, 0.96);
+    border: 1px solid #2e3a5e; border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 12px; line-height: 1.5;
+    max-width: 320px; z-index: 100;
+    opacity: 0; transition: opacity 0.12s;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  }
+  #tooltip .name { font-weight: 600; font-size: 14px; color: #e6e9f0; }
+  #tooltip .cat { color: #5fe6a8; font-size: 11px; margin-top: 2px; }
+  #tooltip .mc { color: #f0c674; margin-top: 6px; font-weight: 600; }
+  #tooltip .desc { color: #b3bccd; margin-top: 6px; }
+  #tooltip .country { color: #8b93a7; margin-top: 4px; font-size: 11px; }
+  #tooltip .crit { color: #ff7a8a; margin-top: 6px; font-size: 11px; font-style: italic; }
+  svg { display: block; cursor: grab; }
+  svg:active { cursor: grabbing; }
+  .layer-label {
+    fill: #5fe6a8; font-size: 22px; font-weight: 700;
+    letter-spacing: 1px; opacity: 0.85;
+  }
+  .layer-sublabel { fill: #6c7693; font-size: 13px; font-weight: 400; }
+  .layer-band {
+    fill: rgba(95, 230, 168, 0.025);
+    stroke: rgba(95, 230, 168, 0.12);
+    stroke-width: 1;
+  }
+  .link {
+    fill: none; stroke: #2e3a5e; stroke-opacity: 0.32;
+    transition: stroke 0.18s, stroke-opacity 0.18s, stroke-width 0.18s;
+  }
+  .link.highlight { stroke: #f0c674; stroke-opacity: 0.95; stroke-width: 2.6px; }
+  .link.dim { stroke-opacity: 0.05; }
+  .node circle {
+    stroke: #07090f; stroke-width: 1.5px; cursor: pointer;
+    transition: stroke 0.18s, stroke-width 0.18s;
+  }
+  .node:hover circle { stroke: #fff; stroke-width: 2.5px; }
+  .node text {
+    fill: #e6e9f0; font-size: 11px; text-anchor: middle;
+    pointer-events: none; paint-order: stroke;
+    stroke: #07090f; stroke-width: 3px; stroke-linejoin: round;
+  }
+  .node.critical circle {
+    stroke: #ff7a8a;
+    stroke-width: 2px;
+    stroke-dasharray: 3 2;
+  }
+  .node.dim circle, .node.dim text { opacity: 0.16; }
+  .chokepoint-label {
+    fill: #ff7a8a;
+    font-size: 11px;
+    text-anchor: middle;
+    pointer-events: none;
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <h1><span>◤</span> AI Chip Supply Chain — From Sand to GPT</h1>
+  <div class="meta">Circle size = market cap • Red dashes = critical chokepoint • approx. early-2025</div>
+</div>
+
+<div id="controls">
+  <b>Navigation</b><br>
+  Scroll to zoom • Drag to pan<br>
+  Click a node to highlight its connections<br>
+  Hover for details
+  <div class="row">
+    <button id="reset">Reset view</button>
+    <button id="fit">Fit to screen</button>
+    <button id="critical">Show only chokepoints</button>
+  </div>
+  <input id="search" placeholder="🔍 Search company..." />
+  <select id="country-filter">
+    <option value="">All regions</option>
+  </select>
+  <div id="search-results"></div>
+</div>
+
+<div id="legend">
+  <div class="lt">Layers in the AI chip stack</div>
+  <div id="legend-items"></div>
+  <div class="lt" style="margin-top:10px">Market cap (USD)</div>
+  <div class="scale">
+    <div class="c" style="width:10px;height:10px"></div><span>$10B</span>
+    <div class="c" style="width:22px;height:22px"></div><span>$100B</span>
+    <div class="c" style="width:42px;height:42px"></div><span>$1T</span>
+    <div class="c" style="width:70px;height:70px"></div><span>$3T+</span>
+  </div>
+  <div class="lt" style="margin-top:10px">⚠ Critical chokepoint</div>
+  <div style="font-size:11px; color:#b3bccd">Single-vendor or near-monopoly link in the chain.</div>
+</div>
+
+<div id="tooltip"></div>
+
+<svg id="viz"></svg>
+
+<script>
+// ============================================================
+// AI CHIP SUPPLY CHAIN
+// Top to bottom: Materials → Equipment → EDA/IP → AI Designers →
+//                Foundry (TSMC) → HBM Memory → Advanced Packaging →
+//                Networking → AI Servers → Hyperscalers/Buyers → AI Apps
+// ============================================================
+
+const LAYERS = [
+  { id: "materials",  name: "Specialty Materials & Wafers",   sub: "Photoresist, gases, 300mm wafers",                 color: "#7d8aa8" },
+  { id: "equipment",  name: "Wafer Fab Equipment",            sub: "EUV lithography & advanced process tools",         color: "#c98c5b" },
+  { id: "eda",        name: "EDA & IP",                       sub: "Design tools, CPU/GPU/interconnect IP",            color: "#9b6dd9" },
+  { id: "designers",  name: "AI Chip Designers",              sub: "GPUs, TPUs, ASICs, accelerators",                  color: "#5bb4d9" },
+  { id: "foundry",    name: "Leading-Edge Foundry",           sub: "N5/N4/N3/N2 — where AI silicon is born",           color: "#f0c674" },
+  { id: "hbm",        name: "HBM Memory",                     sub: "High-bandwidth memory stacked beside the GPU die", color: "#d95b8a" },
+  { id: "packaging",  name: "Advanced Packaging (CoWoS / SoIC)", sub: "2.5D/3D integration of die + HBM",            color: "#d97f5b" },
+  { id: "network",    name: "AI Networking",                  sub: "NVLink, Infiniband, optics, switches",             color: "#5fe6a8" },
+  { id: "servers",    name: "AI Server OEMs",                 sub: "DGX-class systems and AI racks",                   color: "#a89cff" },
+  { id: "hyperscalers",name: "Hyperscalers & Cloud Buyers",   sub: "The customers writing the checks",                 color: "#6ea8ff" },
+  { id: "apps",       name: "AI Model Builders & Apps",       sub: "Frontier labs and consumer-facing AI",             color: "#ffa6c2" }
+];
+
+const NODES = [
+  // ---- Materials ----
+  { id: "shinetsu", name: "Shin-Etsu",        layer: "materials", mcap: 80,  country: "Japan",   desc: "World's largest silicon wafer + EUV photoresist supplier." , crit: true},
+  { id: "sumco",    name: "SUMCO",            layer: "materials", mcap: 5,   country: "Japan",   desc: "#2 silicon wafer maker; 300mm leading-edge wafers." },
+  { id: "jsr",      name: "JSR",              layer: "materials", mcap: 8,   country: "Japan",   desc: "Top EUV photoresist supplier (now JIC-owned).", crit: true },
+  { id: "tokyoohka",name: "Tokyo Ohka Kogyo", layer: "materials", mcap: 4,   country: "Japan",   desc: "Photoresist, including EUV." },
+  { id: "entegris", name: "Entegris",         layer: "materials", mcap: 16,  country: "USA",     desc: "Specialty materials, filtration, and gas/liquid delivery." },
+  { id: "linde_gas",name: "Linde",            layer: "materials", mcap: 215, country: "UK/USA",  desc: "Specialty gases (rare gases, neon, helium)." },
+
+  // ---- Equipment ----
+  { id: "asml",     name: "ASML",             layer: "equipment", mcap: 280, country: "Netherlands", desc: "EUV lithography monopoly. ~$200M+ per High-NA tool. The single hardest link in the chain.", crit: true },
+  { id: "amat",     name: "Applied Materials",layer: "equipment", mcap: 145, country: "USA",     desc: "Largest equipment maker; deposition, etch, CMP, ion implant." },
+  { id: "lam",      name: "Lam Research",     layer: "equipment", mcap: 95,  country: "USA",     desc: "Etch and deposition leader. Critical for HBM stacking.", crit: true },
+  { id: "kla",      name: "KLA",              layer: "equipment", mcap: 95,  country: "USA",     desc: "Process control, defect inspection, metrology.", crit: true },
+  { id: "tel",      name: "Tokyo Electron",   layer: "equipment", mcap: 95,  country: "Japan",   desc: "Coater/developer, etch, thermal processing." },
+  { id: "asmi",     name: "ASM International",layer: "equipment", mcap: 25,  country: "Netherlands", desc: "ALD deposition leader." },
+  { id: "advantest",name: "Advantest",        layer: "equipment", mcap: 35,  country: "Japan",   desc: "ATE — semiconductor test systems for AI accelerators.", crit: true },
+  { id: "teradyne", name: "Teradyne",         layer: "equipment", mcap: 18,  country: "USA",     desc: "Test systems, including for HBM and AI." },
+
+  // ---- EDA / IP ----
+  { id: "synopsys", name: "Synopsys",         layer: "eda", mcap: 90,  country: "USA",   desc: "EDA leader; AI accelerator design tools, IP, verification.", crit: true },
+  { id: "cadence",  name: "Cadence",          layer: "eda", mcap: 80,  country: "USA",   desc: "EDA & system design. AI compute IP, verification.", crit: true },
+  { id: "siemens_eda",name:"Siemens EDA",     layer: "eda", mcap: 200, country: "Germany", desc: "Mentor; physical verification, calibration. Conglomerate mcap." },
+  { id: "arm",      name: "Arm Holdings",     layer: "eda", mcap: 145, country: "UK",    desc: "Neoverse CPU IP used in Grace, Graviton, Maia host CPUs." },
+  { id: "sifive",   name: "SiFive",           layer: "eda", mcap: 3,   country: "USA",   desc: "RISC-V cores used in some AI chips (private est.)." },
+
+  // ---- AI Designers ----
+  { id: "nvidia",   name: "NVIDIA",           layer: "designers", mcap: 3300, country: "USA",  desc: "Hopper, Blackwell, Rubin. ~80%+ of merchant AI training chips. The center of gravity.", crit: true },
+  { id: "amd",      name: "AMD",              layer: "designers", mcap: 175,  country: "USA",  desc: "MI300X, MI325X. Distant #2 in merchant AI GPUs." },
+  { id: "intel_ai", name: "Intel (Gaudi)",    layer: "designers", mcap: 130,  country: "USA",  desc: "Gaudi 3 accelerators; Falcon Shores roadmap." },
+  { id: "broadcom", name: "Broadcom (XPU)",   layer: "designers", mcap: 1100, country: "USA",  desc: "Custom ASICs for Google TPU, Meta MTIA. AI networking silicon." , crit: true},
+  { id: "marvell",  name: "Marvell (XPU)",    layer: "designers", mcap: 65,   country: "USA",  desc: "Custom silicon for AWS Trainium2; 800G optics DSPs." },
+  { id: "alchip",   name: "Alchip",           layer: "designers", mcap: 6,    country: "Taiwan", desc: "ASIC design services for AWS, Intel; AI accelerators." },
+  { id: "google_tpu",name:"Google TPU (in-house)", layer: "designers", mcap: 0, country: "USA", desc: "Designed by Google with Broadcom; v5p/v5e/Trillium." },
+  { id: "aws_chips",name: "AWS Trainium / Inferentia (in-house)", layer: "designers", mcap: 0, country: "USA", desc: "Annapurna Labs; Trainium2/3, Graviton. Built with Marvell/Alchip." },
+  { id: "msft_maia",name: "Microsoft Maia (in-house)", layer: "designers", mcap: 0, country: "USA", desc: "Maia 100 AI accelerator; Cobalt CPU." },
+  { id: "meta_mtia",name: "Meta MTIA (in-house)", layer: "designers", mcap: 0, country: "USA", desc: "MTIA v1/v2 inference chips; ranked w/ Broadcom." },
+  { id: "tesla_dojo",name:"Tesla Dojo (in-house)", layer: "designers", mcap: 0, country: "USA", desc: "D1 training chip + FSD inference SoC." },
+  { id: "huawei_ascend",name:"Huawei Ascend",layer: "designers", mcap: 100,  country: "China", desc: "Ascend 910B/910C — China's NVIDIA alternative. SMIC-fabbed." },
+  { id: "cerebras", name: "Cerebras",         layer: "designers", mcap: 7,    country: "USA",  desc: "Wafer-scale engine; CS-3 system." },
+  { id: "groq",     name: "Groq",             layer: "designers", mcap: 3,    country: "USA",  desc: "LPU for ultra-low-latency inference." },
+  { id: "sambanova",name: "SambaNova",        layer: "designers", mcap: 5,    country: "USA",  desc: "RDU dataflow architecture." },
+  { id: "tenstorrent",name:"Tenstorrent",     layer: "designers", mcap: 2.6,  country: "USA",  desc: "Wormhole/Blackhole; RISC-V + AI tensor cores." },
+  { id: "graphcore",name: "Graphcore",        layer: "designers", mcap: 0.5,  country: "UK",   desc: "IPUs; acquired by SoftBank 2024." },
+  { id: "rebellions",name:"Rebellions / FuriosaAI", layer: "designers", mcap: 1, country: "S.Korea", desc: "Korean inference accelerator startups." },
+
+  // ---- Foundry ----
+  { id: "tsmc",     name: "TSMC",             layer: "foundry", mcap: 900, country: "Taiwan", desc: "Manufactures essentially all leading-edge AI chips. N4 → N3 → N2. The single point of failure for the AI economy.", crit: true },
+  { id: "samsung_foundry",name:"Samsung Foundry",layer:"foundry", mcap: 350, country: "S.Korea", desc: "GAA at 3nm; struggling with leading-edge yields. Some Tesla, Qualcomm work." },
+  { id: "intel_foundry",name:"Intel Foundry", layer: "foundry", mcap: 130, country: "USA",   desc: "18A node aiming for 2025 risk production; Microsoft is announced customer." },
+  { id: "smic",     name: "SMIC",             layer: "foundry", mcap: 50,  country: "China", desc: "Fabricates Huawei Ascend at multi-patterned 7nm — without EUV." },
+
+  // ---- HBM ----
+  { id: "skhynix",  name: "SK Hynix",         layer: "hbm", mcap: 130, country: "S.Korea", desc: "HBM3E leader; sole-supplier of premium HBM to NVIDIA H200/B200 in volume.", crit: true },
+  { id: "micron",   name: "Micron",           layer: "hbm", mcap: 110, country: "USA",     desc: "HBM3E ramping into NVIDIA. Sold out of HBM through 2025." },
+  { id: "samsung_mem",name:"Samsung Memory",  layer: "hbm", mcap: 350, country: "S.Korea", desc: "Largest DRAM/NAND maker. HBM3E qualification ongoing at NVIDIA." },
+
+  // ---- Packaging ----
+  { id: "tsmc_cowos",name:"TSMC CoWoS",       layer: "packaging", mcap: 900,country: "Taiwan", desc: "2.5D advanced packaging; single biggest capacity bottleneck for AI chips through 2025.", crit: true },
+  { id: "ase",      name: "ASE Technology",   layer: "packaging", mcap: 25, country: "Taiwan", desc: "World's largest OSAT; FOPLP and HBM bonding." },
+  { id: "amkor",    name: "Amkor",            layer: "packaging", mcap: 6,  country: "USA",    desc: "Major OSAT; Arizona advanced-packaging fab announced." },
+  { id: "siliconware",name:"SPIL (in ASE)",   layer: "packaging", mcap: 0,  country: "Taiwan", desc: "Subsidiary of ASE." },
+
+  // ---- Networking ----
+  { id: "broadcom_net",name:"Broadcom (Tomahawk/Jericho)",layer:"network", mcap: 1100,country: "USA", desc: "Tomahawk 5 = 51.2T switch silicon. Backbone of AI fabrics." },
+  { id: "nv_mellanox",name:"NVIDIA Networking (Mellanox)",layer:"network", mcap: 3300, country: "USA/Israel", desc: "InfiniBand, NVLink, BlueField DPUs. Part of NVIDIA." },
+  { id: "marvell_net",name:"Marvell Networking",layer: "network", mcap: 65, country: "USA",  desc: "DPUs, switch silicon, 800G PAM4 DSPs." },
+  { id: "arista",   name: "Arista Networks",  layer: "network", mcap: 130,  country: "USA",  desc: "AI Ethernet switches built on Broadcom + Marvell silicon." },
+  { id: "cisco",    name: "Cisco",            layer: "network", mcap: 230,  country: "USA",  desc: "Silicon One; AI fabric switches." },
+  { id: "coherent", name: "Coherent",         layer: "network", mcap: 12,   country: "USA",  desc: "Optical transceivers; pluggables for 800G/1.6T." },
+  { id: "lumentum", name: "Lumentum",         layer: "network", mcap: 6,    country: "USA",  desc: "EML lasers for AI transceivers." },
+  { id: "innolight",name: "Innolight",        layer: "network", mcap: 12,   country: "China",desc: "Top optical transceiver supplier (NVIDIA partner)." , crit: true},
+  { id: "astera",   name: "Astera Labs",      layer: "network", mcap: 12,   country: "USA",  desc: "PCIe/CXL retimers, smart cables for AI servers." },
+  { id: "credo",    name: "Credo",            layer: "network", mcap: 12,   country: "USA",  desc: "Active electrical cables for AI clusters." },
+
+  // ---- AI Servers ----
+  { id: "supermicro",name:"Supermicro",       layer: "servers", mcap: 25, country: "USA",   desc: "Liquid-cooled AI rack scale-out leader." },
+  { id: "dell",     name: "Dell",             layer: "servers", mcap: 80, country: "USA",   desc: "PowerEdge AI servers (XE9680)." },
+  { id: "hpe",      name: "HPE",              layer: "servers", mcap: 28, country: "USA",   desc: "Cray-branded AI; closing Juniper acquisition." },
+  { id: "lenovo",   name: "Lenovo",           layer: "servers", mcap: 18, country: "China", desc: "ThinkSystem AI servers." },
+  { id: "honhai",   name: "Hon Hai / Foxconn",layer: "servers", mcap: 80, country: "Taiwan",desc: "Largest AI server contract manufacturer (assembles for NVIDIA + others).", crit: true },
+  { id: "wistron",  name: "Wistron",          layer: "servers", mcap: 9,  country: "Taiwan", desc: "ODM; major NVIDIA HGX builder." },
+  { id: "wiwynn",   name: "Wiwynn",           layer: "servers", mcap: 14, country: "Taiwan", desc: "Hyperscale ODM (Microsoft, Meta)." },
+  { id: "quanta",   name: "Quanta",           layer: "servers", mcap: 30, country: "Taiwan", desc: "Top hyperscale ODM." },
+  { id: "inventec", name: "Inventec",         layer: "servers", mcap: 7,  country: "Taiwan", desc: "AI server ODM." },
+
+  // ---- Hyperscalers / buyers ----
+  { id: "msft",     name: "Microsoft",        layer: "hyperscalers", mcap: 3100, country: "USA", desc: "Largest NVIDIA buyer. ~$80B AI capex 2025. Azure + OpenAI." },
+  { id: "google",   name: "Google",           layer: "hyperscalers", mcap: 2200, country: "USA", desc: "TPU + NVIDIA. GCP, Gemini, Search." },
+  { id: "amazon",   name: "Amazon (AWS)",     layer: "hyperscalers", mcap: 2000, country: "USA", desc: "Trainium + NVIDIA. Anthropic Project Rainier (~400k Trainium2)." },
+  { id: "meta",     name: "Meta",             layer: "hyperscalers", mcap: 1500, country: "USA", desc: "Targeting 2M GPU equivalents by 2026. MTIA + NVIDIA." },
+  { id: "oracle",   name: "Oracle",           layer: "hyperscalers", mcap: 400,  country: "USA", desc: "OCI; large NVIDIA cluster commitments. Stargate partner." },
+  { id: "tesla",    name: "Tesla",            layer: "hyperscalers", mcap: 900,  country: "USA", desc: "Cortex cluster; ~85k H100 + Dojo." },
+  { id: "xai",      name: "xAI",              layer: "hyperscalers", mcap: 50,   country: "USA", desc: "Colossus cluster (200k H100→1M target). Private est." },
+  { id: "coreweave",name: "CoreWeave",        layer: "hyperscalers", mcap: 35,   country: "USA", desc: "Largest GPU-cloud neocloud." },
+  { id: "lambda",   name: "Lambda / Crusoe / Nebius",layer:"hyperscalers", mcap: 8, country: "USA", desc: "GPU-cloud neoclouds." },
+  { id: "bytedance",name: "ByteDance",        layer: "hyperscalers", mcap: 300,  country: "China", desc: "Largest Chinese AI compute buyer (TikTok, Doubao). Private est." },
+  { id: "alibaba",  name: "Alibaba",          layer: "hyperscalers", mcap: 220,  country: "China", desc: "Cloud + Qwen models; T-Head in-house chips." },
+  { id: "tencent",  name: "Tencent",          layer: "hyperscalers", mcap: 450,  country: "China", desc: "Major Ascend buyer." },
+
+  // ---- AI labs / apps ----
+  { id: "openai",   name: "OpenAI",           layer: "apps", mcap: 300, country: "USA",  desc: "GPT-5, Stargate. Compute via Microsoft + Oracle. Private est." },
+  { id: "anthropic",name: "Anthropic",        layer: "apps", mcap: 60,  country: "USA",  desc: "Claude. Compute via AWS Trainium + GCP TPU + NVIDIA. Private est." },
+  { id: "deepmind", name: "Google DeepMind",  layer: "apps", mcap: 2200, country: "UK/USA", desc: "Gemini; runs on TPU + GPU. Part of Alphabet." },
+  { id: "meta_ai",  name: "Meta AI",          layer: "apps", mcap: 1500, country: "USA", desc: "Llama 4; runs in-house on MTIA + NVIDIA." },
+  { id: "xai_app",  name: "xAI (Grok)",       layer: "apps", mcap: 50,  country: "USA",  desc: "Grok models on Colossus." },
+  { id: "mistral",  name: "Mistral",          layer: "apps", mcap: 6,   country: "France", desc: "European frontier lab. Private est." },
+  { id: "deepseek", name: "DeepSeek",         layer: "apps", mcap: 0.5, country: "China", desc: "Efficient training; ran on H800 + Ascend. Private est." },
+  { id: "perplexity",name:"Perplexity",       layer: "apps", mcap: 9,   country: "USA",  desc: "AI search wrapper." },
+  { id: "midjourney",name:"Midjourney",       layer: "apps", mcap: 5,   country: "USA",  desc: "Image gen on rented GPU. Private est." },
+  { id: "cursor",   name: "Cursor / Codeium / Replit",layer:"apps", mcap: 10, country: "USA", desc: "AI coding apps." }
+];
+
+const LINKS = [
+  // Materials -> Equipment & Foundries
+  ["shinetsu","tsmc"],["shinetsu","samsung_foundry"],["shinetsu","intel_foundry"],["shinetsu","smic"],
+  ["sumco","tsmc"],["sumco","samsung_foundry"],
+  ["jsr","asml"],["jsr","tsmc"],["jsr","samsung_foundry"],
+  ["tokyoohka","tsmc"],
+  ["entegris","tsmc"],["entegris","samsung_foundry"],["entegris","intel_foundry"],
+  ["linde_gas","tsmc"],["linde_gas","skhynix"],["linde_gas","micron"],
+
+  // Equipment -> Foundry / Memory
+  ["asml","tsmc"],["asml","samsung_foundry"],["asml","intel_foundry"],["asml","skhynix"],["asml","micron"],
+  ["amat","tsmc"],["amat","samsung_foundry"],["amat","intel_foundry"],["amat","skhynix"],["amat","micron"],["amat","smic"],
+  ["lam","tsmc"],["lam","samsung_foundry"],["lam","skhynix"],["lam","micron"],["lam","samsung_mem"],
+  ["kla","tsmc"],["kla","samsung_foundry"],["kla","intel_foundry"],
+  ["tel","tsmc"],["tel","samsung_foundry"],["tel","skhynix"],
+  ["asmi","tsmc"],["asmi","intel_foundry"],
+  ["advantest","tsmc"],["advantest","skhynix"],["advantest","micron"],["advantest","ase"],
+  ["teradyne","tsmc"],["teradyne","ase"],
+
+  // EDA/IP -> AI designers
+  ["synopsys","nvidia"],["synopsys","amd"],["synopsys","broadcom"],["synopsys","intel_ai"],["synopsys","marvell"],["synopsys","alchip"],["synopsys","cerebras"],["synopsys","tenstorrent"],
+  ["cadence","nvidia"],["cadence","amd"],["cadence","broadcom"],["cadence","marvell"],["cadence","alchip"],["cadence","groq"],["cadence","sambanova"],
+  ["siemens_eda","nvidia"],["siemens_eda","amd"],["siemens_eda","broadcom"],
+  ["arm","nvidia"],["arm","amazon"],["arm","msft_maia"],["arm","tesla_dojo"],["arm","alibaba"],
+  ["sifive","tenstorrent"],
+
+  // Designers -> Foundry
+  ["nvidia","tsmc"],["amd","tsmc"],["broadcom","tsmc"],["marvell","tsmc"],["alchip","tsmc"],
+  ["intel_ai","intel_foundry"],["intel_ai","tsmc"],
+  ["google_tpu","tsmc"],["aws_chips","tsmc"],["msft_maia","tsmc"],["meta_mtia","tsmc"],
+  ["tesla_dojo","tsmc"],["tesla_dojo","samsung_foundry"],
+  ["huawei_ascend","smic"],
+  ["cerebras","tsmc"],["groq","globalfoundries"],["sambanova","tsmc"],["tenstorrent","samsung_foundry"],["tenstorrent","tsmc"],["graphcore","tsmc"],["rebellions","samsung_foundry"],
+
+  // Hyperscalers -> their in-house chips
+  ["google","google_tpu"],["amazon","aws_chips"],["msft","msft_maia"],["meta","meta_mtia"],["tesla","tesla_dojo"],
+  ["broadcom","google_tpu"],["broadcom","meta_mtia"],
+  ["marvell","aws_chips"],["alchip","aws_chips"],["alchip","intel_ai"],
+  ["alibaba","huawei_ascend"], // illustrative — Chinese hyperscalers buying domestic
+
+  // Foundry -> Packaging
+  ["tsmc","tsmc_cowos"],["tsmc","ase"],["tsmc","amkor"],
+  ["samsung_foundry","ase"],["samsung_foundry","amkor"],
+  ["intel_foundry","amkor"],["intel_foundry","ase"],
+  ["smic","jcet"],
+
+  // HBM -> Packaging (HBM gets stacked next to GPU die in CoWoS)
+  ["skhynix","tsmc_cowos"],["micron","tsmc_cowos"],["samsung_mem","tsmc_cowos"],
+  ["skhynix","ase"],["micron","amkor"],
+
+  // Designers depend on HBM directly (commercial relationship)
+  ["skhynix","nvidia"],["skhynix","amd"],["skhynix","intel_ai"],["skhynix","huawei_ascend"],
+  ["micron","nvidia"],["micron","amd"],
+  ["samsung_mem","nvidia"],["samsung_mem","amd"],["samsung_mem","google_tpu"],
+
+  // Packaging -> finished AI chips -> server OEMs
+  ["tsmc_cowos","nvidia"],["tsmc_cowos","amd"],["tsmc_cowos","google_tpu"],["tsmc_cowos","aws_chips"],["tsmc_cowos","msft_maia"],["tsmc_cowos","meta_mtia"],["tsmc_cowos","intel_ai"],
+  ["ase","nvidia"],["amkor","nvidia"],
+
+  // Networking silicon -> servers
+  ["nvidia","nv_mellanox"], // mellanox is part of nvidia, but show as networking
+  ["broadcom_net","arista"],["broadcom_net","cisco"],["broadcom_net","supermicro"],["broadcom_net","wiwynn"],
+  ["marvell_net","arista"],["marvell_net","cisco"],
+  ["nv_mellanox","supermicro"],["nv_mellanox","dell"],["nv_mellanox","hpe"],["nv_mellanox","quanta"],
+  ["coherent","innolight"],["lumentum","innolight"],
+  ["innolight","nvidia"],["innolight","arista"],
+  ["astera","supermicro"],["astera","dell"],
+  ["credo","supermicro"],["credo","wiwynn"],
+
+  // Designers -> server OEMs (the AI silicon goes into boxes)
+  ["nvidia","supermicro"],["nvidia","dell"],["nvidia","hpe"],["nvidia","lenovo"],["nvidia","honhai"],["nvidia","wistron"],["nvidia","wiwynn"],["nvidia","quanta"],["nvidia","inventec"],
+  ["amd","supermicro"],["amd","dell"],["amd","hpe"],["amd","wiwynn"],
+  ["intel_ai","dell"],["intel_ai","supermicro"],
+
+  // Server OEMs -> hyperscalers
+  ["supermicro","msft"],["supermicro","meta"],["supermicro","xai"],["supermicro","coreweave"],["supermicro","oracle"],
+  ["dell","msft"],["dell","xai"],["dell","coreweave"],["dell","tesla"],
+  ["hpe","oracle"],["hpe","amazon"],
+  ["lenovo","alibaba"],["lenovo","tencent"],
+  ["honhai","msft"],["honhai","amazon"],["honhai","google"],["honhai","oracle"],["honhai","meta"],
+  ["wistron","msft"],["wistron","meta"],
+  ["wiwynn","msft"],["wiwynn","meta"],
+  ["quanta","msft"],["quanta","google"],["quanta","amazon"],["quanta","meta"],
+  ["inventec","google"],["inventec","amazon"],
+
+  // In-house chips also flow back to their hyperscaler
+  ["google_tpu","google"],["aws_chips","amazon"],["msft_maia","msft"],["meta_mtia","meta"],["tesla_dojo","tesla"],
+
+  // Hyperscalers -> Apps (compute providers)
+  ["msft","openai"],["oracle","openai"],
+  ["amazon","anthropic"],["google","anthropic"],
+  ["google","deepmind"],["google","perplexity"],
+  ["meta","meta_ai"],
+  ["xai","xai_app"],
+  ["amazon","mistral"],["msft","mistral"],
+  ["coreweave","openai"],["coreweave","mistral"],["coreweave","cursor"],
+  ["lambda","cursor"],["lambda","midjourney"],
+  ["alibaba","deepseek"],["bytedance","deepseek"],
+
+  // Some apps directly named for buyers
+  ["nvidia","openai"],["nvidia","anthropic"],["nvidia","xai_app"],["nvidia","tesla"]
+];
+
+// ============================================================
+// LAYOUT
+// ============================================================
+
+const W = 6000;
+const H = 3300;
+const PAD_TOP = 100;
+const PAD_BOTTOM = 80;
+
+const layerCount = LAYERS.length;
+const colHeight = (H - PAD_TOP - PAD_BOTTOM);
+const layerHeight = colHeight / layerCount;
+
+const byLayer = d3.group(NODES, d => d.layer);
+LAYERS.forEach(layer => {
+  const arr = byLayer.get(layer.id) || [];
+  arr.sort((a,b) => b.mcap - a.mcap);
+});
+
+// Use special radius treatment for in-house designers (mcap=0)
+NODES.forEach(n => {
+  if (n.mcap === 0) n._displayMcap = 60;  // give them visual presence
+  else n._displayMcap = n.mcap;
+});
+
+const maxMcap = d3.max(NODES, d => d._displayMcap);
+const rScale = d3.scaleSqrt().domain([0.4, maxMcap]).range([6, 78]);
+
+LAYERS.forEach((layer, li) => {
+  const arr = byLayer.get(layer.id) || [];
+  const yCenter = PAD_TOP + li * layerHeight + layerHeight / 2;
+  const totalWidth = W - 220;
+  const xStart = 220;
+  const radii = arr.map(d => rScale(d._displayMcap));
+  const totalDiameter = d3.sum(radii) * 2 + (arr.length - 1) * 18;
+  let scale = 1;
+  if (totalDiameter > totalWidth) scale = totalWidth / totalDiameter;
+  let x = xStart;
+  arr.forEach((n, i) => {
+    const r = Math.max(radii[i] * scale, 6);
+    n.r = r;
+    x += r;
+    const jitter = ((i % 4) - 1.5) * (layerHeight * 0.18);
+    n.x = x;
+    n.y = yCenter + jitter;
+    x += r + 18 * scale;
+  });
+});
+
+const nodeById = new Map(NODES.map(n => [n.id, n]));
+const validLinks = LINKS.filter(([s,t]) => nodeById.has(s) && nodeById.has(t));
+const adjacency = new Map();
+NODES.forEach(n => adjacency.set(n.id, new Set()));
+validLinks.forEach(([s,t]) => {
+  adjacency.get(s).add(t);
+  adjacency.get(t).add(s);
+});
+
+// ============================================================
+// RENDER
+// ============================================================
+
+const svg = d3.select("#viz")
+  .attr("width", window.innerWidth)
+  .attr("height", window.innerHeight)
+  .attr("viewBox", [0, 0, window.innerWidth, window.innerHeight]);
+
+const g = svg.append("g");
+
+LAYERS.forEach((layer, li) => {
+  const y = PAD_TOP + li * layerHeight;
+  g.append("rect")
+    .attr("class","layer-band")
+    .attr("x", 0).attr("y", y)
+    .attr("width", W).attr("height", layerHeight - 8);
+  g.append("text")
+    .attr("class","layer-label")
+    .attr("x", 24).attr("y", y + 36)
+    .text(layer.name)
+    .attr("fill", layer.color);
+  g.append("text")
+    .attr("class","layer-sublabel")
+    .attr("x", 24).attr("y", y + 56)
+    .text(layer.sub);
+});
+
+// Links
+const linkG = g.append("g").attr("class","links");
+const linkSel = linkG.selectAll("path")
+  .data(validLinks)
+  .enter().append("path")
+  .attr("class","link")
+  .attr("d", ([s,t]) => {
+    const a = nodeById.get(s), b = nodeById.get(t);
+    const dy = b.y - a.y;
+    const c1x = a.x, c1y = a.y + dy * 0.55;
+    const c2x = b.x, c2y = b.y - dy * 0.55;
+    return `M${a.x},${a.y} C${c1x},${c1y} ${c2x},${c2y} ${b.x},${b.y}`;
+  })
+  .attr("stroke", ([s,t]) => {
+    const src = nodeById.get(s);
+    const layer = LAYERS.find(l => l.id === src.layer);
+    return layer ? layer.color : "#2e3a5e";
+  })
+  .attr("stroke-opacity", 0.18);
+
+const nodeG = g.append("g").attr("class","nodes");
+const nodeSel = nodeG.selectAll("g.node")
+  .data(NODES)
+  .enter().append("g")
+  .attr("class", d => "node" + (d.crit ? " critical" : ""))
+  .attr("transform", d => `translate(${d.x},${d.y})`)
+  .on("mouseover", (event, d) => showTip(event, d))
+  .on("mousemove", (event) => moveTip(event))
+  .on("mouseout", hideTip)
+  .on("click", (event, d) => { event.stopPropagation(); highlightConnections(d); });
+
+nodeSel.append("circle")
+  .attr("r", d => d.r)
+  .attr("fill", d => {
+    const layer = LAYERS.find(l => l.id === d.layer);
+    return layer ? layer.color : "#888";
+  })
+  .attr("fill-opacity", 0.78);
+
+nodeSel.append("text")
+  .attr("dy", d => d.r + 14)
+  .text(d => d.name)
+  .style("font-size", d => Math.max(10, Math.min(16, 9 + d.r/10)) + "px");
+
+nodeSel.filter(d => d.r > 24 && d.mcap > 0).append("text")
+  .attr("dy", "0.35em")
+  .text(d => "$" + (d.mcap >= 1000 ? (d.mcap/1000).toFixed(1)+"T" : d.mcap+"B"))
+  .style("font-size", d => Math.max(10, d.r/3) + "px")
+  .style("font-weight","700")
+  .style("fill","#fff").style("stroke","none");
+
+// "in-house" tag for hyperscaler chips
+nodeSel.filter(d => d.mcap === 0).append("text")
+  .attr("dy", "0.35em")
+  .text("in-house")
+  .style("font-size","10px")
+  .style("font-style","italic")
+  .style("fill","#fff").style("stroke","none");
+
+// ============================================================
+// ZOOM / PAN
+// ============================================================
+
+const zoom = d3.zoom()
+  .scaleExtent([0.05, 6])
+  .on("zoom", e => g.attr("transform", e.transform));
+svg.call(zoom);
+svg.on("click", () => clearHighlight());
+
+function fitToScreen() {
+  const w = window.innerWidth, h = window.innerHeight;
+  const scale = Math.min(w / W, h / H) * 0.95;
+  const tx = (w - W * scale) / 2;
+  const ty = (h - H * scale) / 2;
+  svg.transition().duration(700).call(
+    zoom.transform,
+    d3.zoomIdentity.translate(tx, ty).scale(scale)
+  );
+}
+fitToScreen();
+document.getElementById("reset").onclick = fitToScreen;
+document.getElementById("fit").onclick = fitToScreen;
+
+// Search + country filter
+const countries = Array.from(new Set(NODES.map(n => n.country.split("/")[0].trim()))).sort();
+const cf = document.getElementById("country-filter");
+countries.forEach(c => {
+  const o = document.createElement("option"); o.value = c; o.textContent = c;
+  cf.appendChild(o);
+});
+cf.onchange = () => {
+  const v = cf.value;
+  if (!v) { clearHighlight(); return; }
+  const matchIds = new Set(NODES.filter(n => n.country.startsWith(v)).map(n => n.id));
+  nodeSel.classed("dim", n => !matchIds.has(n.id));
+  linkSel.classed("dim", ([s,t]) => !matchIds.has(s) && !matchIds.has(t));
+};
+const searchInput = document.getElementById("search");
+const searchResults = document.getElementById("search-results");
+searchInput.oninput = () => {
+  const q = searchInput.value.toLowerCase().trim();
+  searchResults.innerHTML = "";
+  if (!q) return;
+  const matches = NODES.filter(n =>
+    n.name.toLowerCase().includes(q) || n.id.toLowerCase().includes(q)
+  ).slice(0, 12);
+  matches.forEach(n => {
+    const div = document.createElement("div");
+    div.className = "sr";
+    const layer = LAYERS.find(l => l.id === n.layer);
+    div.innerHTML = `<span>${n.name}</span><span class="c">${layer ? layer.name.split(" ")[0] : ""}</span>`;
+    div.onclick = () => zoomToNode(n);
+    searchResults.appendChild(div);
+  });
+};
+function zoomToNode(n) {
+  const w = window.innerWidth, h = window.innerHeight;
+  const scale = 1.2;
+  const tx = w/2 - n.x * scale;
+  const ty = h/2 - n.y * scale;
+  svg.transition().duration(700).call(
+    zoom.transform,
+    d3.zoomIdentity.translate(tx, ty).scale(scale)
+  );
+  highlightConnections(n);
+  searchResults.innerHTML = ""; searchInput.value = "";
+}
+
+// Critical-only filter
+let critOnly = false;
+document.getElementById("critical").onclick = () => {
+  critOnly = !critOnly;
+  if (critOnly) {
+    const critIds = new Set(NODES.filter(n => n.crit).map(n => n.id));
+    nodeSel.classed("dim", n => !critIds.has(n.id));
+    linkSel.classed("dim", ([s,t]) => !critIds.has(s) && !critIds.has(t));
+    document.getElementById("critical").textContent = "Show all";
+  } else {
+    clearHighlight();
+    document.getElementById("critical").textContent = "Show only chokepoints";
+  }
+};
+
+function highlightConnections(d) {
+  critOnly = false;
+  document.getElementById("critical").textContent = "Show only chokepoints";
+  const connected = adjacency.get(d.id);
+  nodeSel.classed("dim", n => n.id !== d.id && !connected.has(n.id));
+  linkSel.classed("highlight", ([s,t]) => s === d.id || t === d.id);
+  linkSel.classed("dim", ([s,t]) => s !== d.id && t !== d.id);
+}
+function clearHighlight() {
+  nodeSel.classed("dim", false);
+  linkSel.classed("highlight", false).classed("dim", false);
+}
+
+// Tooltip
+const tip = document.getElementById("tooltip");
+function showTip(event, d) {
+  const layer = LAYERS.find(l => l.id === d.layer);
+  const mcap = d.mcap === 0
+    ? "(in-house, no separate mcap)"
+    : d.mcap >= 1000
+      ? "$" + (d.mcap/1000).toFixed(2) + "T"
+      : "$" + d.mcap + "B";
+  tip.innerHTML = `
+    <div class="name">${d.name}</div>
+    <div class="cat">${layer ? layer.name : ""}</div>
+    <div class="country">📍 ${d.country}</div>
+    <div class="mc">Market cap: ${mcap}</div>
+    <div class="desc">${d.desc}</div>
+    ${d.crit ? `<div class="crit">⚠ Critical chokepoint — limited or no second source.</div>` : ""}
+  `;
+  tip.style.opacity = 1;
+  moveTip(event);
+}
+function moveTip(event) {
+  const x = event.clientX + 16, y = event.clientY + 16;
+  tip.style.left = Math.min(x, window.innerWidth - 340) + "px";
+  tip.style.top = Math.min(y, window.innerHeight - 220) + "px";
+}
+function hideTip() { tip.style.opacity = 0; }
+
+// Legend
+const legendItems = d3.select("#legend-items");
+LAYERS.forEach(l => {
+  const li = legendItems.append("div").attr("class","li");
+  li.append("div").attr("class","sw").style("background", l.color);
+  li.append("span").text(l.name);
+});
+
+window.addEventListener("resize", () => {
+  svg.attr("width", window.innerWidth).attr("height", window.innerHeight)
+     .attr("viewBox", [0, 0, window.innerWidth, window.innerHeight]);
+});
+</script>
+</body>
+</html>

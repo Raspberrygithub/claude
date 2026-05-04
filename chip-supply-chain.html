@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Global Semiconductor Supply Chain</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%;
+    background: #0a0e1a;
+    color: #e6e9f0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    overflow: hidden;
+  }
+  #header {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    padding: 14px 22px;
+    background: linear-gradient(180deg, rgba(10,14,26,0.95) 0%, rgba(10,14,26,0.7) 100%);
+    z-index: 10;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    pointer-events: none;
+  }
+  #header h1 {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+  #header h1 span {
+    color: #6ea8ff;
+  }
+  #header .meta {
+    font-size: 12px;
+    color: #8b93a7;
+  }
+  #controls {
+    position: fixed;
+    top: 60px; left: 18px;
+    background: rgba(18, 24, 40, 0.92);
+    border: 1px solid #232c48;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 12px;
+    z-index: 10;
+    max-width: 280px;
+    line-height: 1.55;
+  }
+  #controls b { color: #6ea8ff; }
+  #controls .row { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
+  #controls button {
+    background: #1d2640; border: 1px solid #2e3a5e; color: #e6e9f0;
+    padding: 4px 10px; border-radius: 5px; cursor: pointer; font-size: 11px;
+  }
+  #controls button:hover { background: #283354; }
+  #controls input, #controls select {
+    background: #0f1426; border: 1px solid #2e3a5e; color: #e6e9f0;
+    padding: 5px 8px; border-radius: 5px; font-size: 12px; width: 100%;
+    margin-top: 6px; font-family: inherit;
+  }
+  #controls input:focus, #controls select:focus { outline: none; border-color: #6ea8ff; }
+  #search-results {
+    max-height: 180px; overflow-y: auto; margin-top: 6px;
+    border-top: 1px solid #232c48; padding-top: 6px;
+  }
+  #search-results .sr {
+    padding: 4px 6px; cursor: pointer; border-radius: 4px;
+    font-size: 11px; display: flex; justify-content: space-between;
+  }
+  #search-results .sr:hover { background: #1d2640; }
+  #search-results .sr .c { color: #6c7693; font-size: 10px; }
+  #legend {
+    position: fixed;
+    bottom: 18px; left: 18px;
+    background: rgba(18, 24, 40, 0.92);
+    border: 1px solid #232c48;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 11px;
+    z-index: 10;
+    max-width: 320px;
+  }
+  #legend .lt { font-weight: 600; color: #6ea8ff; margin-bottom: 6px; font-size: 12px; }
+  #legend .li { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+  #legend .sw { width: 12px; height: 12px; border-radius: 50%; }
+  #legend .scale { display: flex; align-items: end; gap: 6px; margin-top: 8px; }
+  #legend .scale .c { background: #6ea8ff; opacity: 0.6; border-radius: 50%; }
+  #tooltip {
+    position: fixed;
+    pointer-events: none;
+    background: rgba(12, 18, 34, 0.96);
+    border: 1px solid #2e3a5e;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 12px;
+    line-height: 1.5;
+    max-width: 280px;
+    z-index: 100;
+    opacity: 0;
+    transition: opacity 0.12s;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  }
+  #tooltip .name { font-weight: 600; font-size: 14px; color: #e6e9f0; }
+  #tooltip .cat { color: #6ea8ff; font-size: 11px; margin-top: 2px; }
+  #tooltip .mc { color: #f0c674; margin-top: 6px; font-weight: 600; }
+  #tooltip .desc { color: #b3bccd; margin-top: 6px; }
+  #tooltip .country { color: #8b93a7; margin-top: 4px; font-size: 11px; }
+  svg { display: block; cursor: grab; }
+  svg:active { cursor: grabbing; }
+  .layer-label {
+    fill: #6ea8ff;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    opacity: 0.85;
+  }
+  .layer-sublabel {
+    fill: #6c7693;
+    font-size: 13px;
+    font-weight: 400;
+  }
+  .layer-band {
+    fill: rgba(110, 168, 255, 0.025);
+    stroke: rgba(110, 168, 255, 0.12);
+    stroke-width: 1;
+  }
+  .link {
+    fill: none;
+    stroke: #2e3a5e;
+    stroke-opacity: 0.35;
+    transition: stroke 0.18s, stroke-opacity 0.18s, stroke-width 0.18s;
+  }
+  .link.highlight {
+    stroke: #f0c674;
+    stroke-opacity: 0.95;
+    stroke-width: 2.5px;
+  }
+  .link.dim { stroke-opacity: 0.06; }
+  .node circle {
+    stroke: #0a0e1a;
+    stroke-width: 1.5px;
+    cursor: pointer;
+    transition: stroke 0.18s, stroke-width 0.18s;
+  }
+  .node:hover circle { stroke: #fff; stroke-width: 2.5px; }
+  .node text {
+    fill: #e6e9f0;
+    font-size: 11px;
+    text-anchor: middle;
+    pointer-events: none;
+    paint-order: stroke;
+    stroke: #0a0e1a;
+    stroke-width: 3px;
+    stroke-linejoin: round;
+  }
+  .node.dim circle { opacity: 0.18; }
+  .node.dim text { opacity: 0.18; }
+  #minimap {
+    position: fixed;
+    bottom: 18px; right: 18px;
+    width: 240px; height: 150px;
+    background: rgba(12,18,34,0.9);
+    border: 1px solid #2e3a5e;
+    border-radius: 8px;
+    z-index: 10;
+    overflow: hidden;
+  }
+  #minimap .vp {
+    fill: none;
+    stroke: #f0c674;
+    stroke-width: 1.5;
+  }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <h1><span>◎</span> Global Semiconductor Supply Chain</h1>
+  <div class="meta">Circle size = market cap (sqrt-scaled) • approx. early-2025 valuations</div>
+</div>
+
+<div id="controls">
+  <b>Navigation</b><br>
+  Scroll to zoom • Drag to pan<br>
+  Click a company to highlight its connections<br>
+  Hover for details
+  <div class="row">
+    <button id="reset">Reset view</button>
+    <button id="fit">Fit to screen</button>
+  </div>
+  <input id="search" placeholder="🔍 Search company..." />
+  <select id="country-filter">
+    <option value="">All regions</option>
+  </select>
+  <div id="search-results"></div>
+</div>
+
+<div id="legend">
+  <div class="lt">Supply chain layers</div>
+  <div id="legend-items"></div>
+  <div class="lt" style="margin-top:10px">Market cap (USD)</div>
+  <div class="scale">
+    <div class="c" style="width:8px;height:8px"></div><span>$10B</span>
+    <div class="c" style="width:18px;height:18px"></div><span>$100B</span>
+    <div class="c" style="width:36px;height:36px"></div><span>$1T</span>
+    <div class="c" style="width:60px;height:60px"></div><span>$3T+</span>
+  </div>
+</div>
+
+<div id="tooltip"></div>
+
+<svg id="viz"></svg>
+
+<script>
+// ============================================================
+// DATA: Global semiconductor supply chain
+// Market caps in $B, approx. early 2025 (rounded to highlight scale).
+// For diversified conglomerates (Samsung, Sony, Hon Hai), full mcap is shown.
+// ============================================================
+
+const LAYERS = [
+  { id: "materials",  name: "Raw Materials & Wafers",   sub: "Silicon wafers, photoresist, gases, CMP slurries", color: "#7d8aa8" },
+  { id: "equipment",  name: "Wafer Fab Equipment",      sub: "Lithography, etch, deposition, metrology",         color: "#c98c5b" },
+  { id: "eda",        name: "EDA & IP",                 sub: "Design tools and reusable IP cores",               color: "#9b6dd9" },
+  { id: "fabless",    name: "Fabless Designers",        sub: "Design chips, outsource manufacturing",            color: "#5bb4d9" },
+  { id: "idm",        name: "IDMs (Integrated Device Manufacturers)", sub: "Design + manufacture in-house",      color: "#5bd9a6" },
+  { id: "memory",     name: "Memory Manufacturers",     sub: "DRAM, NAND, HBM",                                  color: "#d95b8a" },
+  { id: "foundry",    name: "Pure-Play Foundries",      sub: "Manufacture chips for fabless customers",          color: "#f0c674" },
+  { id: "osat",       name: "OSAT — Packaging & Test",  sub: "Outsourced assembly, advanced packaging",          color: "#d97f5b" },
+  { id: "distribution", name: "Distribution & Channel", sub: "Avnet, Arrow, Digi-Key, Mouser",                   color: "#a8a8a8" },
+  { id: "end",        name: "End-Market Buyers",        sub: "OEMs and hyperscalers consuming silicon",          color: "#6ea8ff" }
+];
+
+const NODES = [
+  // ---- Raw materials & wafers ----
+  { id: "shinetsu", name: "Shin-Etsu Chemical", layer: "materials", mcap: 80,  country: "Japan",   desc: "World's #1 silicon wafer producer; also photoresist." },
+  { id: "sumco",    name: "SUMCO",              layer: "materials", mcap: 5,   country: "Japan",   desc: "#2 silicon wafer maker globally." },
+  { id: "siltronic",name: "Siltronic",          layer: "materials", mcap: 3,   country: "Germany", desc: "Top-5 silicon wafer producer." },
+  { id: "globalwafers", name: "GlobalWafers",   layer: "materials", mcap: 6,   country: "Taiwan",  desc: "Top-3 wafer maker after acquiring SunEdison Semi." },
+  { id: "entegris", name: "Entegris",           layer: "materials", mcap: 16,  country: "USA",     desc: "Specialty materials, filtration, gas/liquid handling." },
+  { id: "linde_gas",name: "Linde (Industrial Gases)", layer: "materials", mcap: 215, country: "UK/USA", desc: "Industrial & specialty gases for fabs." },
+  { id: "airliquide",name:"Air Liquide",        layer: "materials", mcap: 110, country: "France",  desc: "Electronics specialty gases." },
+  { id: "jsr",      name: "JSR",                layer: "materials", mcap: 8,   country: "Japan",   desc: "Photoresists, materials. Acquired by JIC." },
+  { id: "tokyoohka",name: "Tokyo Ohka Kogyo",   layer: "materials", mcap: 4,   country: "Japan",   desc: "Photoresist leader." },
+
+  // ---- Equipment ----
+  { id: "asml",     name: "ASML",               layer: "equipment", mcap: 280, country: "Netherlands", desc: "Monopoly on EUV lithography. Critical chokepoint." },
+  { id: "amat",     name: "Applied Materials",  layer: "equipment", mcap: 145, country: "USA",     desc: "Largest semi equipment maker by revenue. Deposition, etch, CMP." },
+  { id: "lam",      name: "Lam Research",       layer: "equipment", mcap: 95,  country: "USA",     desc: "Etch and deposition leader." },
+  { id: "kla",      name: "KLA",                layer: "equipment", mcap: 95,  country: "USA",     desc: "Process control & metrology." },
+  { id: "tel",      name: "Tokyo Electron",     layer: "equipment", mcap: 95,  country: "Japan",   desc: "Coater/developer, etch, deposition." },
+  { id: "screen",   name: "SCREEN Holdings",    layer: "equipment", mcap: 8,   country: "Japan",   desc: "Wafer cleaning equipment." },
+  { id: "asmi",     name: "ASM International",  layer: "equipment", mcap: 25,  country: "Netherlands", desc: "ALD deposition leader." },
+  { id: "amec",     name: "AMEC (中微公司)",    layer: "equipment", mcap: 18,  country: "China",   desc: "Etch tools; key to China indigenization." },
+  { id: "naura",    name: "Naura Technology",   layer: "equipment", mcap: 35,  country: "China",   desc: "China's largest equipment maker." },
+  { id: "canon_litho",name:"Canon (Litho)",     layer: "equipment", mcap: 45,  country: "Japan",   desc: "i-line/KrF lithography; nanoimprint R&D." },
+  { id: "nikon_litho",name:"Nikon (Litho)",     layer: "equipment", mcap: 5,   country: "Japan",   desc: "Legacy lithography, ArF immersion." },
+
+  // ---- EDA & IP ----
+  { id: "synopsys", name: "Synopsys",           layer: "eda", mcap: 90,  country: "USA",     desc: "EDA leader; verification, design tools, IP." },
+  { id: "cadence",  name: "Cadence",            layer: "eda", mcap: 80,  country: "USA",     desc: "EDA & system design tools, IP." },
+  { id: "siemens_eda",name:"Siemens EDA",       layer: "eda", mcap: 200, country: "Germany", desc: "Mentor Graphics; PCB & IC EDA. Parent mcap shown." },
+  { id: "arm",      name: "Arm Holdings",       layer: "eda", mcap: 145, country: "UK",      desc: "CPU IP licensed industry-wide. Owned by SoftBank." },
+  { id: "sifive",   name: "SiFive",             layer: "eda", mcap: 3,   country: "USA",     desc: "RISC-V CPU IP (private valuation est.)." },
+  { id: "imagination",name:"Imagination Tech",  layer: "eda", mcap: 1.5, country: "UK",      desc: "GPU IP. Private (Canyon Bridge)." },
+  { id: "ceva",     name: "CEVA",               layer: "eda", mcap: 0.6, country: "USA",     desc: "DSP & wireless IP." },
+
+  // ---- Fabless ----
+  { id: "nvidia",   name: "NVIDIA",             layer: "fabless", mcap: 3300, country: "USA",  desc: "AI/GPU dominator. Largest semiconductor company by mcap." },
+  { id: "broadcom", name: "Broadcom",           layer: "fabless", mcap: 1100, country: "USA",  desc: "Networking, custom ASICs (incl. for Google), software (VMware)." },
+  { id: "amd",      name: "AMD",                layer: "fabless", mcap: 175, country: "USA",   desc: "x86 CPUs, GPUs, MI300 AI accelerators, Xilinx FPGAs." },
+  { id: "qualcomm", name: "Qualcomm",           layer: "fabless", mcap: 175, country: "USA",   desc: "Mobile SoCs, modems (Snapdragon), wireless IP." },
+  { id: "mediatek", name: "MediaTek",           layer: "fabless", mcap: 75,  country: "Taiwan",desc: "Mobile/IoT/TV SoCs." },
+  { id: "marvell",  name: "Marvell",            layer: "fabless", mcap: 65,  country: "USA",   desc: "Networking, custom silicon (incl. AWS), DPUs." },
+  { id: "apple_si", name: "Apple Silicon (in-house)", layer: "fabless", mcap: 3300, country: "USA", desc: "M-series, A-series. Designs internally; biggest TSMC customer. Parent mcap shown." },
+  { id: "xilinx_amd",name:"Xilinx (in AMD)",    layer: "fabless", mcap: 0,   country: "USA",   desc: "FPGAs; merged into AMD 2022." },
+  { id: "realtek",  name: "Realtek",            layer: "fabless", mcap: 8,   country: "Taiwan",desc: "Network ICs, audio codecs." },
+  { id: "novatek",  name: "Novatek",            layer: "fabless", mcap: 12,  country: "Taiwan",desc: "Display driver ICs." },
+  { id: "himax",    name: "Himax",              layer: "fabless", mcap: 1,   country: "Taiwan",desc: "Display drivers, sensors." },
+  { id: "cirrus",   name: "Cirrus Logic",       layer: "fabless", mcap: 5,   country: "USA",   desc: "Audio chips (Apple key customer)." },
+
+  // ---- IDMs ----
+  { id: "intel",    name: "Intel",              layer: "idm", mcap: 130, country: "USA",   desc: "x86 CPUs, building Foundry business (IFS)." },
+  { id: "samsung",  name: "Samsung Electronics",layer: "idm", mcap: 350, country: "S.Korea",desc: "Memory + logic IDM + foundry. Conglomerate mcap shown." },
+  { id: "ti",       name: "Texas Instruments",  layer: "idm", mcap: 175, country: "USA",   desc: "Analog & embedded leader." },
+  { id: "stmicro",  name: "STMicroelectronics", layer: "idm", mcap: 25,  country: "Switz/Fra/Ita", desc: "Microcontrollers, power, MEMS, SiC." },
+  { id: "nxp",      name: "NXP Semiconductors", layer: "idm", mcap: 55,  country: "Netherlands", desc: "Auto, secure ID, networking." },
+  { id: "infineon", name: "Infineon",           layer: "idm", mcap: 45,  country: "Germany",desc: "Power semis, auto, IGBT/SiC leader." },
+  { id: "renesas",  name: "Renesas",            layer: "idm", mcap: 25,  country: "Japan",  desc: "MCUs and auto SoCs." },
+  { id: "analog",   name: "Analog Devices",     layer: "idm", mcap: 110, country: "USA",   desc: "High-performance analog & mixed-signal." },
+  { id: "microchip",name: "Microchip",          layer: "idm", mcap: 32,  country: "USA",   desc: "MCUs, analog, FPGA (Microsemi)." },
+  { id: "onsemi",   name: "ON Semiconductor",   layer: "idm", mcap: 20,  country: "USA",   desc: "Auto power, image sensors." },
+  { id: "rohm",     name: "Rohm",               layer: "idm", mcap: 4,   country: "Japan",  desc: "Discretes, SiC power." },
+  { id: "wolfspeed",name: "Wolfspeed",          layer: "idm", mcap: 1.5, country: "USA",   desc: "Silicon carbide pioneer." },
+  { id: "skyworks", name: "Skyworks",           layer: "idm", mcap: 12,  country: "USA",   desc: "RF front-end (Apple key customer)." },
+  { id: "qorvo",    name: "Qorvo",              layer: "idm", mcap: 7,   country: "USA",   desc: "RF, GaN power." },
+  { id: "sony_si",  name: "Sony Semi",          layer: "idm", mcap: 110, country: "Japan",  desc: "CMOS image sensors leader. Parent mcap shown." },
+
+  // ---- Memory ----
+  { id: "micron",   name: "Micron",             layer: "memory", mcap: 110, country: "USA",   desc: "DRAM, NAND, HBM3E ramp." },
+  { id: "skhynix",  name: "SK Hynix",           layer: "memory", mcap: 130, country: "S.Korea",desc: "DRAM, NAND. Dominant HBM supplier to NVIDIA." },
+  { id: "samsung_mem",name:"Samsung Memory",    layer: "memory", mcap: 350, country: "S.Korea",desc: "Largest DRAM/NAND maker. Part of Samsung Electronics." },
+  { id: "kioxia",   name: "Kioxia",             layer: "memory", mcap: 6,   country: "Japan",  desc: "NAND flash (formerly Toshiba Memory)." },
+  { id: "westerndigital",name:"Western Digital",layer: "memory", mcap: 22,  country: "USA",   desc: "NAND flash JV with Kioxia, HDD." },
+  { id: "ymtc",     name: "YMTC",               layer: "memory", mcap: 5,   country: "China", desc: "China NAND flash. Private est." },
+  { id: "cxmt",     name: "CXMT",               layer: "memory", mcap: 8,   country: "China", desc: "China DRAM rising. Private est." },
+
+  // ---- Foundry ----
+  { id: "tsmc",     name: "TSMC",               layer: "foundry", mcap: 900, country: "Taiwan",desc: "World's largest pure-play foundry. ~60% market share, ~90% leading-edge." },
+  { id: "samsung_foundry",name:"Samsung Foundry",layer: "foundry", mcap: 350, country: "S.Korea",desc: "#2 leading-edge foundry; struggling on yields." },
+  { id: "globalfoundries",name:"GlobalFoundries",layer: "foundry", mcap: 22,  country: "USA",  desc: "Mature nodes, RF-SOI. Spun out of AMD." },
+  { id: "smic",     name: "SMIC",               layer: "foundry", mcap: 50,  country: "China", desc: "China's largest foundry, sanctioned for advanced nodes." },
+  { id: "umc",      name: "UMC",                layer: "foundry", mcap: 18,  country: "Taiwan",desc: "Mature-node foundry." },
+  { id: "tower",    name: "Tower Semi",         layer: "foundry", mcap: 5,   country: "Israel",desc: "Specialty analog/RF foundry." },
+  { id: "huahong",  name: "Hua Hong",           layer: "foundry", mcap: 5,   country: "China", desc: "Mature-node Chinese foundry." },
+  { id: "vis",      name: "VIS",                layer: "foundry", mcap: 5,   country: "Taiwan",desc: "Mature-node foundry; TSMC affiliate." },
+  { id: "psmc",     name: "PSMC",               layer: "foundry", mcap: 1,   country: "Taiwan",desc: "DRAM/foundry hybrid." },
+  { id: "intel_foundry",name:"Intel Foundry",   layer: "foundry", mcap: 130, country: "USA",  desc: "Intel's foundry arm; 18A node bid for advanced share." },
+
+  // ---- OSAT ----
+  { id: "ase",      name: "ASE Technology",     layer: "osat", mcap: 25,  country: "Taiwan",desc: "World's largest OSAT. Advanced packaging, FOPLP." },
+  { id: "amkor",    name: "Amkor",              layer: "osat", mcap: 6,   country: "USA",   desc: "#2 OSAT globally. Major Apple/Qualcomm packager." },
+  { id: "jcet",     name: "JCET",               layer: "osat", mcap: 7,   country: "China", desc: "China's largest OSAT (acquired STATS ChipPAC)." },
+  { id: "powertech",name: "Powertech (PTI)",    layer: "osat", mcap: 3,   country: "Taiwan",desc: "Memory packaging specialist." },
+  { id: "tongfu",   name: "TongFu Microelectronics",layer:"osat", mcap: 4,country: "China", desc: "AMD packaging partner." },
+  { id: "chipmos",  name: "ChipMOS",            layer: "osat", mcap: 0.7, country: "Taiwan",desc: "Driver IC packaging." },
+
+  // ---- Distribution ----
+  { id: "avnet",    name: "Avnet",              layer: "distribution", mcap: 4.5, country: "USA",  desc: "Global electronic components distributor." },
+  { id: "arrow",    name: "Arrow Electronics",  layer: "distribution", mcap: 6,   country: "USA",  desc: "Components & enterprise computing distribution." },
+  { id: "wpg",      name: "WPG Holdings",       layer: "distribution", mcap: 4,   country: "Taiwan", desc: "Asia's largest semi distributor." },
+  { id: "digikey",  name: "Digi-Key",           layer: "distribution", mcap: 4,   country: "USA",  desc: "Online distribution. Private est." },
+  { id: "mouser",   name: "Mouser",             layer: "distribution", mcap: 4,   country: "USA",  desc: "Online distribution. Berkshire-owned." },
+
+  // ---- End markets ----
+  { id: "apple",    name: "Apple",              layer: "end", mcap: 3400, country: "USA",   desc: "Largest TSMC customer. iPhone, Mac, iPad." },
+  { id: "msft",     name: "Microsoft",          layer: "end", mcap: 3100, country: "USA",   desc: "Azure hyperscaler; designing Maia AI chips." },
+  { id: "google",   name: "Google (Alphabet)",  layer: "end", mcap: 2200, country: "USA",   desc: "TPUs (made with Broadcom + TSMC); GCP." },
+  { id: "amazon",   name: "Amazon (AWS)",       layer: "end", mcap: 2000, country: "USA",   desc: "Trainium, Inferentia, Graviton (Annapurna Labs)." },
+  { id: "meta",     name: "Meta",               layer: "end", mcap: 1500, country: "USA",   desc: "Massive GPU buyer; MTIA in-house chips." },
+  { id: "tesla",    name: "Tesla",              layer: "end", mcap: 900,  country: "USA",   desc: "FSD chip, Dojo. Auto demand for power semis." },
+  { id: "tsla_auto",name: "Auto OEMs (Toyota, VW, Ford, GM, ...)",layer:"end", mcap: 700, country: "Global", desc: "Combined demand for power, MCUs, sensors." },
+  { id: "honhai",   name: "Hon Hai / Foxconn",  layer: "end", mcap: 80,   country: "Taiwan",desc: "World's largest contract manufacturer (iPhone, AI servers)." },
+  { id: "dell",     name: "Dell",               layer: "end", mcap: 80,   country: "USA",   desc: "PC & AI server OEM." },
+  { id: "hpe",      name: "HPE",                layer: "end", mcap: 28,   country: "USA",   desc: "Enterprise servers, Cray." },
+  { id: "supermicro",name:"Supermicro",         layer: "end", mcap: 25,   country: "USA",   desc: "AI server systems leader." },
+  { id: "huawei",   name: "Huawei",             layer: "end", mcap: 100,  country: "China", desc: "Smartphones, Ascend AI chips. Private est." },
+  { id: "xiaomi",   name: "Xiaomi",             layer: "end", mcap: 90,   country: "China", desc: "Smartphones, EV, designing in-house SoCs." },
+  { id: "sony_end", name: "Sony (Consumer)",    layer: "end", mcap: 110,  country: "Japan", desc: "PlayStation, cameras, sensors." }
+];
+
+// ============================================================
+// LINKS — major flows (not exhaustive). Direction: source supplies target.
+// ============================================================
+const LINKS = [
+  // Materials -> Foundries / IDMs / Memory
+  ["shinetsu","tsmc"],["shinetsu","samsung_foundry"],["shinetsu","intel"],["shinetsu","skhynix"],["shinetsu","micron"],
+  ["sumco","tsmc"],["sumco","samsung_foundry"],["sumco","intel"],
+  ["siltronic","intel"],["siltronic","samsung_foundry"],["siltronic","globalfoundries"],
+  ["globalwafers","tsmc"],["globalwafers","umc"],
+  ["entegris","tsmc"],["entegris","intel"],["entegris","samsung_foundry"],
+  ["linde_gas","tsmc"],["linde_gas","intel"],["linde_gas","samsung_foundry"],
+  ["airliquide","tsmc"],["airliquide","stmicro"],
+  ["jsr","tsmc"],["jsr","samsung_foundry"],["jsr","intel"],
+  ["tokyoohka","tsmc"],["tokyoohka","samsung_foundry"],
+
+  // Equipment -> Foundries / IDMs / Memory
+  ["asml","tsmc"],["asml","samsung_foundry"],["asml","intel"],["asml","skhynix"],["asml","micron"],["asml","intel_foundry"],
+  ["amat","tsmc"],["amat","samsung_foundry"],["amat","intel"],["amat","skhynix"],["amat","micron"],["amat","smic"],
+  ["lam","tsmc"],["lam","samsung_foundry"],["lam","intel"],["lam","skhynix"],["lam","micron"],
+  ["kla","tsmc"],["kla","samsung_foundry"],["kla","intel"],
+  ["tel","tsmc"],["tel","samsung_foundry"],["tel","skhynix"],["tel","intel"],
+  ["screen","tsmc"],["screen","samsung_foundry"],
+  ["asmi","tsmc"],["asmi","samsung_foundry"],["asmi","intel"],
+  ["amec","smic"],["amec","huahong"],["amec","ymtc"],
+  ["naura","smic"],["naura","huahong"],["naura","cxmt"],
+  ["canon_litho","umc"],["canon_litho","globalfoundries"],
+  ["nikon_litho","umc"],
+
+  // EDA / IP -> Designers
+  ["synopsys","nvidia"],["synopsys","amd"],["synopsys","qualcomm"],["synopsys","apple_si"],["synopsys","mediatek"],["synopsys","broadcom"],["synopsys","intel"],["synopsys","samsung"],
+  ["cadence","nvidia"],["cadence","amd"],["cadence","apple_si"],["cadence","broadcom"],["cadence","marvell"],["cadence","intel"],
+  ["siemens_eda","nxp"],["siemens_eda","infineon"],["siemens_eda","stmicro"],["siemens_eda","ti"],
+  ["arm","apple_si"],["arm","qualcomm"],["arm","mediatek"],["arm","nvidia"],["arm","amd"],["arm","amazon"],["arm","msft"],["arm","samsung"],["arm","huawei"],
+  ["sifive","intel"],["sifive","google"],
+  ["imagination","apple_si"],["imagination","mediatek"],
+  ["ceva","mediatek"],["ceva","qualcomm"],
+
+  // Fabless / IDM -> Foundries (manufacturing)
+  ["nvidia","tsmc"],["amd","tsmc"],["qualcomm","tsmc"],["qualcomm","samsung_foundry"],
+  ["apple_si","tsmc"],["mediatek","tsmc"],["broadcom","tsmc"],["marvell","tsmc"],
+  ["realtek","tsmc"],["realtek","umc"],["novatek","umc"],["novatek","tsmc"],["himax","umc"],
+  ["cirrus","tsmc"],["xilinx_amd","tsmc"],
+
+  // IDMs that also use foundries for some products
+  ["intel","tsmc"],["stmicro","tsmc"],["nxp","tsmc"],["nxp","samsung_foundry"],["infineon","tsmc"],
+  ["renesas","tsmc"],["renesas","umc"],["analog","tsmc"],["analog","globalfoundries"],
+  ["microchip","tsmc"],["onsemi","globalfoundries"],["sony_si","tsmc"],
+  ["skyworks","tower"],["qorvo","globalfoundries"],
+  ["huawei","smic"],["huawei","tsmc"],
+
+  // Foundries / IDMs -> OSAT
+  ["tsmc","ase"],["tsmc","amkor"],["samsung_foundry","ase"],["samsung_foundry","amkor"],
+  ["globalfoundries","ase"],["globalfoundries","amkor"],
+  ["smic","jcet"],["smic","tongfu"],
+  ["umc","ase"],["umc","powertech"],
+  ["intel","amkor"],["intel","ase"],
+  ["skhynix","powertech"],["micron","powertech"],["micron","amkor"],
+  ["samsung_mem","powertech"],
+
+  // OSAT -> end products (downstream channels)
+  ["ase","apple"],["ase","nvidia"],["ase","qualcomm"],
+  ["amkor","apple"],["amkor","amd"],["amkor","nvidia"],
+
+  // Designers / IDMs -> Distribution -> SMB customers (illustrative)
+  ["ti","avnet"],["ti","arrow"],["ti","digikey"],["ti","mouser"],
+  ["analog","avnet"],["analog","arrow"],["analog","digikey"],
+  ["stmicro","avnet"],["stmicro","arrow"],["stmicro","wpg"],
+  ["nxp","arrow"],["nxp","wpg"],
+  ["microchip","digikey"],["microchip","mouser"],
+  ["infineon","arrow"],["infineon","wpg"],
+  ["onsemi","avnet"],["renesas","wpg"],
+
+  // End-market direct: chips -> OEMs / hyperscalers / consumer brands
+  ["nvidia","msft"],["nvidia","meta"],["nvidia","google"],["nvidia","amazon"],["nvidia","tesla"],["nvidia","supermicro"],["nvidia","dell"],["nvidia","hpe"],["nvidia","xiaomi"],
+  ["amd","msft"],["amd","meta"],["amd","amazon"],["amd","dell"],["amd","supermicro"],
+  ["intel","dell"],["intel","hpe"],["intel","msft"],["intel","amazon"],["intel","apple"],
+  ["apple_si","apple"],
+  ["qualcomm","apple"],["qualcomm","xiaomi"],["qualcomm","honhai"],
+  ["mediatek","xiaomi"],["mediatek","honhai"],
+  ["samsung","honhai"],["sony_si","apple"],["sony_si","sony_end"],
+  ["broadcom","google"],["broadcom","apple"],["broadcom","meta"],
+  ["marvell","amazon"],["marvell","msft"],
+  ["skyworks","apple"],["cirrus","apple"],
+  ["skhynix","nvidia"],["samsung_mem","nvidia"],["micron","nvidia"],
+  ["skhynix","amd"],["micron","amd"],
+  ["nxp","tsla_auto"],["infineon","tsla_auto"],["stmicro","tsla_auto"],["onsemi","tsla_auto"],["renesas","tsla_auto"],["ti","tsla_auto"],["wolfspeed","tesla"],["stmicro","tesla"],
+  ["huawei","huawei"], // self for highlight; will filter
+  ["xiaomi","xiaomi"],
+
+  // Distribution -> long tail of OEMs (visualized as collapsing to honhai/dell as proxy)
+  ["avnet","honhai"],["arrow","dell"],["wpg","honhai"],["digikey","supermicro"],["mouser","supermicro"]
+];
+
+// drop self-loops (hack from above)
+const linksClean = LINKS.filter(([a,b]) => a !== b);
+
+// ============================================================
+// LAYOUT
+// ============================================================
+
+const W = 5400;   // very large canvas — pan/zoom
+const H = 3000;
+const PAD_TOP = 100;
+const PAD_BOTTOM = 80;
+
+const layerCount = LAYERS.length;
+const colHeight = (H - PAD_TOP - PAD_BOTTOM);
+const layerHeight = colHeight / layerCount;
+
+// Group nodes by layer
+const byLayer = d3.group(NODES, d => d.layer);
+
+// Sort each layer by mcap desc so the biggest land near the center
+LAYERS.forEach(layer => {
+  const arr = byLayer.get(layer.id) || [];
+  arr.sort((a,b) => b.mcap - a.mcap);
+});
+
+// Market-cap radius scale
+const maxMcap = d3.max(NODES, d => d.mcap);
+const rScale = d3.scaleSqrt().domain([0.5, maxMcap]).range([5, 70]);
+
+// Position nodes within each layer band
+LAYERS.forEach((layer, li) => {
+  const arr = byLayer.get(layer.id) || [];
+  const yCenter = PAD_TOP + li * layerHeight + layerHeight / 2;
+  const totalWidth = W - 220; // leave room for layer label on left
+  const xStart = 220;
+
+  // arrange in a grid; bigger circles get more space
+  const radii = arr.map(d => rScale(d.mcap));
+  const totalDiameter = d3.sum(radii) * 2 + (arr.length - 1) * 18;
+  let scale = 1;
+  if (totalDiameter > totalWidth) scale = totalWidth / totalDiameter;
+  // Compute cumulative positions
+  let x = xStart;
+  arr.forEach((n, i) => {
+    const r = radii[i] * scale;
+    n.r = Math.max(r, 5);
+    x += n.r;
+    // small vertical jitter so similar-mcap layers don't look like a perfect line
+    const jitter = ((i % 3) - 1) * (layerHeight * 0.16);
+    n.x = x;
+    n.y = yCenter + jitter;
+    x += n.r + 18 * scale;
+  });
+});
+
+// Build a quick lookup
+const nodeById = new Map(NODES.map(n => [n.id, n]));
+
+// Validate links and build adjacency
+const validLinks = linksClean.filter(([s,t]) => nodeById.has(s) && nodeById.has(t));
+const adjacency = new Map(); // id -> Set of connected ids
+NODES.forEach(n => adjacency.set(n.id, new Set()));
+validLinks.forEach(([s,t]) => {
+  adjacency.get(s).add(t);
+  adjacency.get(t).add(s);
+});
+
+// ============================================================
+// RENDER
+// ============================================================
+
+const svg = d3.select("#viz")
+  .attr("width", window.innerWidth)
+  .attr("height", window.innerHeight)
+  .attr("viewBox", [0, 0, window.innerWidth, window.innerHeight]);
+
+const g = svg.append("g");
+
+// Background layer bands
+LAYERS.forEach((layer, li) => {
+  const y = PAD_TOP + li * layerHeight;
+  g.append("rect")
+    .attr("class","layer-band")
+    .attr("x", 0).attr("y", y)
+    .attr("width", W).attr("height", layerHeight - 8);
+  g.append("text")
+    .attr("class","layer-label")
+    .attr("x", 24).attr("y", y + 36)
+    .text(layer.name)
+    .attr("fill", layer.color);
+  g.append("text")
+    .attr("class","layer-sublabel")
+    .attr("x", 24).attr("y", y + 56)
+    .text(layer.sub);
+});
+
+// Links — curved Bezier paths between layers
+const linkG = g.append("g").attr("class","links");
+const linkSel = linkG.selectAll("path")
+  .data(validLinks)
+  .enter().append("path")
+  .attr("class","link")
+  .attr("d", ([s,t]) => {
+    const a = nodeById.get(s), b = nodeById.get(t);
+    const dy = b.y - a.y;
+    const c1x = a.x, c1y = a.y + dy * 0.55;
+    const c2x = b.x, c2y = b.y - dy * 0.55;
+    return `M${a.x},${a.y} C${c1x},${c1y} ${c2x},${c2y} ${b.x},${b.y}`;
+  })
+  .attr("stroke", ([s,t]) => {
+    // color link by source layer
+    const src = nodeById.get(s);
+    const layer = LAYERS.find(l => l.id === src.layer);
+    return layer ? layer.color : "#2e3a5e";
+  })
+  .attr("stroke-opacity", 0.18);
+
+// Nodes
+const nodeG = g.append("g").attr("class","nodes");
+const nodeSel = nodeG.selectAll("g.node")
+  .data(NODES)
+  .enter().append("g")
+  .attr("class","node")
+  .attr("transform", d => `translate(${d.x},${d.y})`)
+  .on("mouseover", (event, d) => showTip(event, d))
+  .on("mousemove", (event) => moveTip(event))
+  .on("mouseout", hideTip)
+  .on("click", (event, d) => {
+    event.stopPropagation();
+    highlightConnections(d);
+  });
+
+nodeSel.append("circle")
+  .attr("r", d => d.r)
+  .attr("fill", d => {
+    const layer = LAYERS.find(l => l.id === d.layer);
+    return layer ? layer.color : "#888";
+  })
+  .attr("fill-opacity", 0.78);
+
+nodeSel.append("text")
+  .attr("dy", d => d.r + 14)
+  .text(d => d.name)
+  .style("font-size", d => Math.max(10, Math.min(16, 9 + d.r/10)) + "px");
+
+// Add mcap label inside large circles
+nodeSel.filter(d => d.r > 22).append("text")
+  .attr("dy", "0.35em")
+  .text(d => "$" + (d.mcap >= 1000 ? (d.mcap/1000).toFixed(1)+"T" : d.mcap+"B"))
+  .style("font-size", d => Math.max(10, d.r/3) + "px")
+  .style("font-weight","700")
+  .style("fill","#fff")
+  .style("stroke","none");
+
+// ============================================================
+// ZOOM / PAN
+// ============================================================
+
+const zoom = d3.zoom()
+  .scaleExtent([0.05, 6])
+  .on("zoom", (event) => {
+    g.attr("transform", event.transform);
+  });
+
+svg.call(zoom);
+svg.on("click", () => clearHighlight());
+
+// Initial fit-to-screen
+function fitToScreen() {
+  const w = window.innerWidth, h = window.innerHeight;
+  const scale = Math.min(w / W, h / H) * 0.95;
+  const tx = (w - W * scale) / 2;
+  const ty = (h - H * scale) / 2;
+  svg.transition().duration(700).call(
+    zoom.transform,
+    d3.zoomIdentity.translate(tx, ty).scale(scale)
+  );
+}
+fitToScreen();
+
+document.getElementById("reset").onclick = () => fitToScreen();
+document.getElementById("fit").onclick   = () => fitToScreen();
+
+// ============================================================
+// SEARCH + COUNTRY FILTER
+// ============================================================
+
+// Build country filter
+const countries = Array.from(new Set(NODES.map(n => {
+  // simplify country labels for filter
+  return n.country.split("/")[0].trim();
+}))).sort();
+const cf = document.getElementById("country-filter");
+countries.forEach(c => {
+  const o = document.createElement("option"); o.value = c; o.textContent = c;
+  cf.appendChild(o);
+});
+
+cf.onchange = () => {
+  const v = cf.value;
+  if (!v) { clearHighlight(); return; }
+  const matchIds = new Set(NODES.filter(n => n.country.startsWith(v)).map(n => n.id));
+  nodeSel.classed("dim", n => !matchIds.has(n.id));
+  linkSel.classed("dim", ([s,t]) => !matchIds.has(s) && !matchIds.has(t));
+};
+
+const searchInput = document.getElementById("search");
+const searchResults = document.getElementById("search-results");
+searchInput.oninput = () => {
+  const q = searchInput.value.toLowerCase().trim();
+  searchResults.innerHTML = "";
+  if (!q) return;
+  const matches = NODES.filter(n =>
+    n.name.toLowerCase().includes(q) || n.id.toLowerCase().includes(q)
+  ).slice(0, 12);
+  matches.forEach(n => {
+    const div = document.createElement("div");
+    div.className = "sr";
+    const layer = LAYERS.find(l => l.id === n.layer);
+    div.innerHTML = `<span>${n.name}</span><span class="c">${layer ? layer.name.split(" ")[0] : ""}</span>`;
+    div.onclick = () => zoomToNode(n);
+    searchResults.appendChild(div);
+  });
+};
+
+function zoomToNode(n) {
+  const w = window.innerWidth, h = window.innerHeight;
+  const scale = 1.2;
+  const tx = w/2 - n.x * scale;
+  const ty = h/2 - n.y * scale;
+  svg.transition().duration(700).call(
+    zoom.transform,
+    d3.zoomIdentity.translate(tx, ty).scale(scale)
+  );
+  highlightConnections(n);
+  searchResults.innerHTML = "";
+  searchInput.value = "";
+}
+
+// ============================================================
+// INTERACTION: highlight connections
+// ============================================================
+
+function highlightConnections(d) {
+  const connected = adjacency.get(d.id);
+  nodeSel.classed("dim", n => n.id !== d.id && !connected.has(n.id));
+  linkSel.classed("highlight", ([s,t]) => s === d.id || t === d.id);
+  linkSel.classed("dim", ([s,t]) => s !== d.id && t !== d.id);
+}
+function clearHighlight() {
+  nodeSel.classed("dim", false);
+  linkSel.classed("highlight", false).classed("dim", false);
+}
+
+// ============================================================
+// TOOLTIP
+// ============================================================
+
+const tip = document.getElementById("tooltip");
+function showTip(event, d) {
+  const layer = LAYERS.find(l => l.id === d.layer);
+  const mcap = d.mcap >= 1000
+    ? "$" + (d.mcap/1000).toFixed(2) + "T"
+    : "$" + d.mcap + "B";
+  tip.innerHTML = `
+    <div class="name">${d.name}</div>
+    <div class="cat">${layer ? layer.name : ""}</div>
+    <div class="country">📍 ${d.country}</div>
+    <div class="mc">Market cap: ${mcap}</div>
+    <div class="desc">${d.desc}</div>
+  `;
+  tip.style.opacity = 1;
+  moveTip(event);
+}
+function moveTip(event) {
+  const x = event.clientX + 16;
+  const y = event.clientY + 16;
+  tip.style.left = Math.min(x, window.innerWidth - 300) + "px";
+  tip.style.top  = Math.min(y, window.innerHeight - 180) + "px";
+}
+function hideTip() { tip.style.opacity = 0; }
+
+// ============================================================
+// LEGEND
+// ============================================================
+const legendItems = d3.select("#legend-items");
+LAYERS.forEach(l => {
+  const li = legendItems.append("div").attr("class","li");
+  li.append("div").attr("class","sw").style("background", l.color);
+  li.append("span").text(l.name);
+});
+
+// ============================================================
+// Resize
+// ============================================================
+window.addEventListener("resize", () => {
+  svg.attr("width", window.innerWidth).attr("height", window.innerHeight)
+     .attr("viewBox", [0, 0, window.innerWidth, window.innerHeight]);
+});
+</script>
+</body>
+</html>
