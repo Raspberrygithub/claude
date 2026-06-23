@@ -155,6 +155,12 @@
   .muted{position:fixed;right:14px;bottom:14px;z-index:5;font-size:12px;color:#cdd7ea;
     background:rgba(13,27,52,.7);border:1px solid #33457a;border-radius:8px;padding:6px 10px;
     pointer-events:none;}
+
+  /* ---------- health ---------- */
+  #healthBadge{display:flex;align-items:center;gap:9px;}
+  .hpbar{width:160px;height:13px;background:#2a3146;border-radius:8px;overflow:hidden;
+    box-shadow:inset 0 1px 3px rgba(0,0,0,.45);}
+  .hpfill{height:100%;width:100%;background:#5fbf6a;transition:width .1s linear,background .2s;}
 </style>
 </head>
 <body>
@@ -163,7 +169,8 @@
 
   <div id="hud">
     <div class="badge" id="progress">🇺🇸 Buildings Unlocked <b><span id="cnt">0</span> / <span id="tot">0</span></b></div>
-    <div class="badge" id="subhud">Conservative Staffer · Walk the District</div>
+    <div class="badge" id="healthBadge">❤️ <div class="hpbar"><div class="hpfill" id="hpfill"></div></div></div>
+    <div class="badge" id="subhud">The mob is coming…</div>
   </div>
 
   <div id="prompt"><span class="key">E</span><span id="promptText">Unlock</span></div>
@@ -192,10 +199,14 @@
       You're a conservative Hill staffer with a laminate badge and a mission.
       Walk the streets of Washington, D.C. and <b>unlock</b> all 27 landmarks &mdash;
       from the Capitol to the Pentagon &mdash; dropping a talking point at every door.
+      But beware: a mob of <b>blue donkeys</b> and <b>blue- &amp; rainbow-haired activists</b>
+      closes in from every direction, and they get <b>faster the longer you take</b>.
+      Get caught and they drain your health. Secure the District before they cancel you.
     </p>
     <div class="controls">
       <div><span class="k">W A S D</span>/<span class="k">↑ ← ↓ →</span> Move</div>
       <div><span class="k">E</span> Unlock building</div>
+      <div><span class="k">🏃</span> Outrun the mob</div>
       <div><span class="k">M</span> Mute</div>
     </div>
     <button class="bigbtn" id="startBtn">▶ Report for Duty</button>
@@ -212,6 +223,18 @@
     <p class="lede">Every door knocked, every talking point delivered. Promises made, promises kept. 🇺🇸</p>
     <button class="bigbtn" id="restartBtn">↻ Walk It Again</button>
     <div class="credit">Thanks for playing</div>
+  </div>
+
+  <!-- GAME OVER -->
+  <div class="overlay hidden" id="overScreen">
+    <div class="stars"></div>
+    <div class="kicker">Overrun By The Mob</div>
+    <div class="title">YOU'VE BEEN<br><span class="accent">CANCELED</span></div>
+    <div class="flagbar"></div>
+    <div id="winStats" >The mob caught up. You secured <b><span id="overCount">0</span> / <span id="overTot">27</span></b> landmarks in <b><span id="overTime">0:00</span></b>.</div>
+    <p class="lede">They came from every direction and never tired. Regroup, staffer &mdash; the District won't secure itself.</p>
+    <button class="bigbtn" id="overRestart">↻ Back to Work</button>
+    <div class="credit">Press Enter to try again</div>
   </div>
 </div>
 
@@ -233,12 +256,31 @@ const WORLD = { w: 3000, h: 2000 };
 let   VIEW  = { w: window.innerWidth, h: window.innerHeight };
 const cam   = { x: 0, y: 0 };
 
-const player = { x: 1180, y: 1090, vx:0, vy:0, r: 13, speed: 250, fx: 0, fy: 1, step: 0 };
+const player = { x: 1180, y: 1090, vx:0, vy:0, r: 13, speed: 250, fx: 0, fy: 1, step: 0, hp: 100, maxhp: 100 };
 const keys = {};
-let state = 'title';            // 'title' | 'play' | 'win'
+let state = 'title';            // 'title' | 'play' | 'win' | 'gameover'
 let muted = false;
 let nearest = null;             // nearest interactable building
-let startTime = 0, elapsed = 0;
+let startTime = 0, elapsed = 0, gameTime = 0;
+
+/* ---- the chasing mob ---- */
+const enemies = [];
+let spawnTimer = 0;
+let hurtFlash = 0, lastHitT = -9;
+const MOB = {
+  base: 92,        // starting speed (px/s) — slower than the player (250)
+  ramp: 1.25,      // speed gained per second of game time
+  max: 305,        // speed cap (faster than the player => eventually unavoidable)
+  r: 13,
+  biteDmg: 11,
+  biteCD: 0.55,    // seconds between bites from a single enemy
+  grace: 3.5,      // seconds before the first one spawns
+  spawnStart: 4.0, // initial spawn interval
+  spawnMin: 1.2,   // fastest spawn interval
+  spawnRamp: 0.025,// interval shrink per second
+  maxCount: 16,    // cap so it stays fair & performant
+};
+const SHIRTS = ['#2aa39a','#7d3fc4','#d6418f','#3b7fe2','#19a0a8','#c0497a'];
 
 /* ---------------- palette ---------------- */
 const C = {
@@ -494,6 +536,7 @@ window.addEventListener('keydown', e=>{
 
   if(state==='title' && (k==='enter'||k===' ')) startGame();
   else if(state==='win' && (k==='enter'||k===' ')) startGame();
+  else if(state==='gameover' && (k==='enter'||k===' ')) startGame();
   else if(state==='play'){
     if(k==='e'||k==='enter') interact();
     if(k===' ') { if(dialogShown) hideDialog(); }
@@ -505,6 +548,7 @@ window.addEventListener('keyup', e=>{ keys[e.key.toLowerCase()]=false; });
 
 document.getElementById('startBtn').addEventListener('click', startGame);
 document.getElementById('restartBtn').addEventListener('click', startGame);
+document.getElementById('overRestart').addEventListener('click', startGame);
 document.getElementById('dlgClose').addEventListener('click', hideDialog);
 
 // click a nearby building to interact
@@ -533,9 +577,16 @@ function toggleMute(){
 function startGame(){
   buildings.forEach(b=>b.unlocked=false);
   player.x=1180; player.y=1090; player.fx=0; player.fy=1;
+  player.hp=player.maxhp;
+  enemies.length=0;
+  spawnTimer=MOB.grace;
+  gameTime=0; hurtFlash=0; lastHitT=-9;
   updateCount();
+  const fill=document.getElementById('hpfill');
+  fill.style.width='100%'; fill.style.background='#5fbf6a';
   document.getElementById('titleScreen').classList.add('hidden');
   document.getElementById('winScreen').classList.add('hidden');
+  document.getElementById('overScreen').classList.add('hidden');
   hideDialog();
   state='play';
   startTime=performance.now();
@@ -591,13 +642,97 @@ function winGame(){
   document.getElementById('winScreen').classList.remove('hidden');
   winSound();
 }
+function gameOver(){
+  state='gameover';
+  elapsed=gameTime;
+  document.getElementById('overCount').textContent=buildings.filter(b=>b.unlocked).length;
+  document.getElementById('overTot').textContent=buildings.length;
+  document.getElementById('overTime').textContent=fmtTime(gameTime);
+  document.getElementById('overScreen').classList.remove('hidden');
+  hideDialog();
+  beep(140,0.5,'sawtooth',0.08);
+  setTimeout(()=>beep(90,0.6,'sawtooth',0.07),160);
+}
 function fmtTime(s){const m=Math.floor(s/60),ss=Math.floor(s%60);return m+':'+String(ss).padStart(2,'0');}
+
+/* =========================================================================
+   THE MOB  (chasers — blue donkeys & blue/rainbow-haired activists)
+   ========================================================================= */
+function mobSpeed(){ return Math.min(MOB.max, MOB.base + gameTime*MOB.ramp); }
+
+function spawnEnemy(){
+  // appear off-screen, around the player, so they come from every direction
+  const ang = rng()*Math.PI*2;
+  const dist = Math.hypot(VIEW.w, VIEW.h)/2 + 100;
+  let ex = player.x + Math.cos(ang)*dist;
+  let ey = player.y + Math.sin(ang)*dist;
+  ex = Math.max(24, Math.min(WORLD.w-24, ex));
+  ey = Math.max(24, Math.min(WORLD.h-24, ey));
+  const r = rng();
+  const type = r<0.45 ? 'donkey' : (r<0.72 ? 'blue' : 'rainbow');
+  enemies.push({
+    x:ex, y:ey, r:MOB.r, type,
+    mult: 0.88 + rng()*0.28,          // per-enemy speed variation
+    fx:0, fy:1, phase: rng()*Math.PI*2,
+    wob: 0.5 + rng()*0.9,             // wander amount
+    bite: 0,
+    shirt: SHIRTS[Math.floor(rng()*SHIRTS.length)],
+  });
+}
+
+function updateEnemies(dt){
+  // spawn over time, ramping up
+  spawnTimer -= dt;
+  if(spawnTimer<=0 && enemies.length<MOB.maxCount){
+    spawnEnemy();
+    if(gameTime>70 && enemies.length<MOB.maxCount) spawnEnemy(); // late-game double spawns
+    spawnTimer = Math.max(MOB.spawnMin, MOB.spawnStart - gameTime*MOB.spawnRamp);
+  }
+
+  const sp = mobSpeed();
+  for(const e of enemies){
+    let dx = player.x - e.x, dy = player.y - e.y;
+    const d = Math.hypot(dx,dy) || 1;
+    dx/=d; dy/=d;
+    e.fx=dx; e.fy=dy;
+    // slight perpendicular wander so the pack spreads out instead of stacking
+    const wob = Math.sin(performance.now()/300 + e.phase) * e.wob;
+    const px = -dy, py = dx;
+    const s = sp * e.mult;
+    e.x += (dx + px*wob*0.18) * s * dt;
+    e.y += (dy + py*wob*0.18) * s * dt;
+    e.x = Math.max(8, Math.min(WORLD.w-8, e.x));
+    e.y = Math.max(8, Math.min(WORLD.h-8, e.y));
+    e.bite -= dt;
+
+    // caught the staffer?
+    if(d < player.r + e.r + 2 && e.bite<=0){
+      player.hp -= MOB.biteDmg;
+      e.bite = MOB.biteCD;
+      hurtFlash = 1; lastHitT = performance.now();
+      e.x -= dx*24; e.y -= dy*24;     // recoil so you get a sliver of space
+      beep(150, 0.08, 'square', 0.05);
+      if(player.hp <= 0){ player.hp = 0; gameOver(); return; }
+    }
+  }
+}
+
+function updateHUD(){
+  const pct = Math.max(0, player.hp)/player.maxhp;
+  const fill = document.getElementById('hpfill');
+  fill.style.width = (pct*100)+'%';
+  fill.style.background = pct>0.5 ? '#5fbf6a' : pct>0.25 ? '#e0a92e' : '#d6263b';
+  const ratio = mobSpeed()/player.speed;
+  const bars = '▲'.repeat(Math.max(1, Math.min(5, Math.round(ratio*3))));
+  document.getElementById('subhud').textContent = 'Mob: '+enemies.length+'  ·  Threat '+bars;
+}
 
 /* =========================================================================
    UPDATE
    ========================================================================= */
 function update(dt){
   if(state!=='play') return;
+  gameTime = (performance.now()-startTime)/1000;
 
   let dx=0, dy=0;
   if(keys['w']||keys['arrowup'])    dy-=1;
@@ -626,6 +761,12 @@ function update(dt){
   cam.y = Math.max(0, Math.min(WORLD.h-VIEW.h, cam.y));
   if(WORLD.w<VIEW.w) cam.x=(WORLD.w-VIEW.w)/2;
   if(WORLD.h<VIEW.h) cam.y=(WORLD.h-VIEW.h)/2;
+
+  // the chasing mob
+  updateEnemies(dt);
+  hurtFlash = Math.max(0, hurtFlash - dt*1.8);
+  if(state!=='play') return;   // gameOver may have fired
+  updateHUD();
 
   // nearest interactable
   nearest=null; let best=1e9;
@@ -751,6 +892,9 @@ function render(){
     ctx.setLineDash([]);
   }
 
+  // ---- the mob ----
+  for(const e of enemies) drawEnemy(e);
+
   // ---- player ----
   drawPlayer();
 
@@ -758,6 +902,16 @@ function render(){
 
   // ---- minimap (screen space) ----
   drawMinimap();
+
+  // ---- hurt flash (red vignette) ----
+  if(hurtFlash>0){
+    const a=Math.min(0.55, hurtFlash*0.55);
+    const g=ctx.createRadialGradient(VIEW.w/2,VIEW.h/2,Math.min(VIEW.w,VIEW.h)*0.28,
+                                     VIEW.w/2,VIEW.h/2,Math.max(VIEW.w,VIEW.h)*0.72);
+    g.addColorStop(0,'rgba(190,0,0,0)');
+    g.addColorStop(1,'rgba(190,0,0,'+a+')');
+    ctx.fillStyle=g; ctx.fillRect(0,0,VIEW.w,VIEW.h);
+  }
 
   // ---- "too far" flash ----
   if(performance.now()-tooFarT < 900){
@@ -1016,6 +1170,88 @@ function drawLabel(text, cx, cy, unlocked){
   ctx.textAlign='left'; ctx.textBaseline='alphabetic';
 }
 
+function drawEnemy(e){
+  const a = Math.atan2(e.fy, e.fx);
+  const bob = Math.sin(performance.now()/180 + e.phase)*1.4;
+  // shadow
+  ctx.fillStyle='rgba(0,0,0,.22)';
+  ctx.beginPath(); ctx.ellipse(e.x, e.y+9, 12, 6, 0, 0, Math.PI*2); ctx.fill();
+  if(e.type==='donkey') drawDonkey(e, a, bob);
+  else drawHairPerson(e, a, bob);
+}
+
+// Top-down Democrat donkey (Democratic-blue) with long ears
+function drawDonkey(e, a, bob){
+  ctx.save();
+  ctx.translate(e.x, e.y+bob);
+  ctx.rotate(a);
+  // legs
+  ctx.strokeStyle='#1c3f7d'; ctx.lineWidth=3; ctx.lineCap='round';
+  ctx.beginPath();
+  ctx.moveTo(4,-7); ctx.lineTo(8,-11);
+  ctx.moveTo(4,7);  ctx.lineTo(8,11);
+  ctx.moveTo(-6,-7);ctx.lineTo(-10,-10);
+  ctx.moveTo(-6,7); ctx.lineTo(-10,10);
+  ctx.stroke();
+  // body
+  ctx.fillStyle='#2a5db0';
+  ctx.beginPath(); ctx.ellipse(0,0,14,10,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#22509c';
+  ctx.beginPath(); ctx.ellipse(-3,0,11,9,0,0,Math.PI*2); ctx.fill();
+  // tail
+  ctx.strokeStyle='#214e9a'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(-14,0); ctx.lineTo(-21,-3); ctx.stroke();
+  // head
+  ctx.fillStyle='#2f63b8';
+  ctx.beginPath(); ctx.ellipse(13,0,6.5,6,0,0,Math.PI*2); ctx.fill();
+  // ears (the giveaway)
+  ctx.fillStyle='#214e9a';
+  ctx.beginPath(); ctx.ellipse(12,-6,2.6,7,-0.5,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(12, 6,2.6,7, 0.5,0,Math.PI*2); ctx.fill();
+  // snout
+  ctx.fillStyle='#9fbbe4';
+  ctx.beginPath(); ctx.ellipse(19,0,3.6,4,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#33508a';
+  ctx.beginPath(); ctx.arc(18,-1.6,0.9,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(18, 1.6,0.9,0,Math.PI*2); ctx.fill();
+  // eye
+  ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(14,-2.2,1.5,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#111'; ctx.beginPath(); ctx.arc(14.5,-2.2,0.8,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+  ctx.lineCap='butt';
+}
+
+// Top-down activist with blue or rainbow hair
+function drawHairPerson(e, a, bob){
+  const x=e.x, y=e.y+bob;
+  const fx=Math.cos(a), fy=Math.sin(a);
+  // body / hoodie
+  ctx.fillStyle=e.shirt;
+  ctx.beginPath(); ctx.arc(x, y, 12, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle='rgba(0,0,0,.25)'; ctx.lineWidth=2; ctx.stroke();
+  // hair tufts fanned around the back of the head
+  const cols = e.type==='blue'
+    ? ['#29a3e0','#29a3e0','#29a3e0','#29a3e0','#29a3e0','#29a3e0']
+    : ['#e23b3b','#e7902b','#e7d52b','#3fae54','#3b7fe2','#8a3be2'];
+  for(let i=0;i<6;i++){
+    const ha = a + Math.PI + (i-2.5)*0.5;
+    const hx = x + Math.cos(ha)*5.5, hy = y + Math.sin(ha)*5.5;
+    ctx.fillStyle = cols[i];
+    ctx.beginPath(); ctx.arc(hx, hy, 3, 0, Math.PI*2); ctx.fill();
+  }
+  // head (skin) over the tuft bases, shifted toward facing dir
+  const hx=x+fx*2.5, hy=y+fy*2.5;
+  ctx.fillStyle='#e9b893';
+  ctx.beginPath(); ctx.arc(hx, hy, 4.8, 0, Math.PI*2); ctx.fill();
+  // angry brows
+  ctx.strokeStyle='#3a2a1a'; ctx.lineWidth=1.2;
+  const ox=-fy, oy=fx;
+  ctx.beginPath();
+  ctx.moveTo(hx+fx*3+ox*2, hy+fy*3+oy*2); ctx.lineTo(hx+fx*1.2+ox*3.2, hy+fy*1.2+oy*3.2);
+  ctx.moveTo(hx+fx*3-ox*2, hy+fy*3-oy*2); ctx.lineTo(hx+fx*1.2-ox*3.2, hy+fy*1.2-oy*3.2);
+  ctx.stroke();
+}
+
 function drawPlayer(){
   const p=player;
   const bob=Math.sin(p.step)*1.5;
@@ -1046,6 +1282,11 @@ function drawPlayer(){
   // badge glint
   ctx.fillStyle='#e0a92e';
   ctx.beginPath(); ctx.arc(p.x-Math.sin(fa)*7, p.y+bob+Math.cos(fa)*7, 1.7, 0, Math.PI*2); ctx.fill();
+  // hit feedback ring
+  if(performance.now()-lastHitT < 260){
+    ctx.strokeStyle='rgba(214,38,59,.9)'; ctx.lineWidth=2.5;
+    ctx.beginPath(); ctx.arc(p.x, p.y+bob, 16, 0, Math.PI*2); ctx.stroke();
+  }
 }
 
 /* ---------------- minimap ---------------- */
@@ -1076,6 +1317,11 @@ function drawMinimap(){
   for(const b of buildings){
     ctx.fillStyle=b.unlocked?'#e0a92e':'#6c7280';
     ctx.beginPath(); ctx.arc(mx+b.x*sx, my+b.y*sy, b.unlocked?2.8:2.2, 0, Math.PI*2); ctx.fill();
+  }
+  // the mob
+  for(const e of enemies){
+    ctx.fillStyle = e.type==='donkey' ? '#2a5db0' : (e.type==='blue' ? '#29a3e0' : '#c0497a');
+    ctx.beginPath(); ctx.arc(mx+e.x*sx, my+e.y*sy, 1.9, 0, Math.PI*2); ctx.fill();
   }
   // viewport rect
   ctx.strokeStyle='rgba(255,255,255,.8)'; ctx.lineWidth=1;
