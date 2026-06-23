@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STAFFER: America First — Unlock the Capital</title>
+<style>
+  :root{
+    --navy:#0d1b34;
+    --navy2:#13284c;
+    --gold:#e0a92e;
+    --gold2:#f2c75c;
+    --red:#b22234;
+    --paper:#f5f1e6;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{height:100%;overflow:hidden;background:#0a1426;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:#fff;
+    user-select:none;
+    -webkit-user-select:none;
+  }
+  #game{position:fixed;inset:0;}
+  canvas{display:block;width:100%;height:100%;background:#acd6e6;}
+
+  /* ---------- HUD ---------- */
+  #hud{
+    position:fixed;top:14px;left:14px;z-index:5;
+    display:flex;flex-direction:column;gap:8px;pointer-events:none;
+  }
+  .badge{
+    background:rgba(13,27,52,.82);
+    border:1.5px solid var(--gold);
+    border-radius:10px;
+    padding:8px 14px;
+    font-weight:700;
+    letter-spacing:.3px;
+    box-shadow:0 6px 18px rgba(0,0,0,.35);
+    backdrop-filter:blur(3px);
+  }
+  #progress{font-size:15px;}
+  #progress b{color:var(--gold2);}
+  #subhud{font-size:12px;font-weight:600;color:#cdd7ea;opacity:.9;}
+
+  /* ---------- prompt ---------- */
+  #prompt{
+    position:fixed;left:50%;bottom:26px;transform:translateX(-50%);
+    z-index:5;pointer-events:none;
+    background:rgba(13,27,52,.9);
+    border:1.5px solid var(--gold);
+    border-radius:999px;
+    padding:9px 18px;font-size:14px;font-weight:700;
+    box-shadow:0 8px 22px rgba(0,0,0,.4);
+    opacity:0;transition:opacity .15s;
+    white-space:nowrap;
+  }
+  #prompt .key{
+    display:inline-block;background:var(--gold);color:var(--navy);
+    border-radius:6px;padding:1px 8px;margin-right:7px;font-weight:800;
+  }
+
+  /* ---------- dialog ---------- */
+  #dialog{
+    position:fixed;left:50%;bottom:30px;transform:translateX(-50%) translateY(20px);
+    z-index:6;width:min(640px,92vw);
+    background:linear-gradient(180deg,var(--navy2),var(--navy));
+    border:2px solid var(--gold);
+    border-radius:16px;
+    padding:18px 22px 20px;
+    box-shadow:0 18px 50px rgba(0,0,0,.55);
+    opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;
+  }
+  #dialog.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto;}
+  #dialog .dh{
+    display:flex;align-items:center;gap:10px;margin-bottom:8px;
+  }
+  #dialog .seal{
+    width:34px;height:34px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,var(--gold2),var(--gold));
+    border:2px solid #fff3;display:grid;place-items:center;font-size:18px;
+    flex:0 0 auto;
+  }
+  #dialog h2{font-size:19px;color:var(--gold2);letter-spacing:.3px;}
+  #dialog .quote{
+    font-size:17px;line-height:1.5;color:#f3f6ff;font-style:italic;
+    border-left:3px solid var(--red);padding-left:14px;margin:6px 0 14px;
+  }
+  #dialog .quote::before{content:"\201C";}
+  #dialog .quote::after{content:"\201D";}
+  #dialog .foot{display:flex;justify-content:space-between;align-items:center;}
+  #dialog .tag{font-size:12px;color:#9fb0cf;font-weight:600;}
+  .btn{
+    pointer-events:auto;cursor:pointer;
+    background:var(--gold);color:var(--navy);
+    border:none;border-radius:9px;padding:9px 16px;
+    font-weight:800;font-size:14px;letter-spacing:.3px;
+    box-shadow:0 4px 0 #a97c19;transition:transform .05s,box-shadow .05s;
+  }
+  .btn:active{transform:translateY(2px);box-shadow:0 2px 0 #a97c19;}
+
+  /* ---------- overlays (title / win) ---------- */
+  .overlay{
+    position:fixed;inset:0;z-index:10;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;padding:24px;
+    background:
+      radial-gradient(1200px 600px at 50% -10%,rgba(224,169,46,.18),transparent),
+      linear-gradient(180deg,rgba(9,18,38,.96),rgba(9,18,38,.99));
+  }
+  .overlay.hidden{display:none;}
+  .stars{position:absolute;inset:0;overflow:hidden;pointer-events:none;opacity:.5;}
+  .kicker{
+    color:var(--gold);font-weight:800;letter-spacing:4px;font-size:14px;
+    text-transform:uppercase;margin-bottom:10px;
+  }
+  .title{
+    font-size:clamp(36px,7vw,72px);font-weight:900;line-height:.98;
+    letter-spacing:1px;
+    background:linear-gradient(180deg,#fff,#dfe7f6);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    text-shadow:0 2px 0 rgba(0,0,0,.2);
+  }
+  .title .accent{
+    background:linear-gradient(180deg,var(--gold2),var(--gold));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .flagbar{
+    height:6px;width:min(520px,80vw);margin:18px 0 8px;border-radius:6px;
+    background:linear-gradient(90deg,var(--red) 0 33%,#fff 33% 66%,#2b4a8b 66% 100%);
+    box-shadow:0 4px 14px rgba(0,0,0,.4);
+  }
+  .lede{max-width:620px;color:#c8d3e8;font-size:16px;line-height:1.55;margin:14px 0 22px;}
+  .controls{
+    display:flex;gap:18px;flex-wrap:wrap;justify-content:center;
+    color:#aebbd6;font-size:13px;margin-bottom:26px;
+  }
+  .controls .k{
+    display:inline-block;background:#1b2b4d;border:1px solid #33457010;
+    border:1px solid #33457a;border-radius:7px;padding:3px 9px;margin-right:6px;
+    color:#fff;font-weight:800;font-size:12px;
+  }
+  .bigbtn{
+    cursor:pointer;border:none;border-radius:12px;
+    padding:15px 40px;font-size:18px;font-weight:900;letter-spacing:.5px;
+    color:var(--navy);
+    background:linear-gradient(180deg,var(--gold2),var(--gold));
+    box-shadow:0 6px 0 #a97c19,0 14px 30px rgba(0,0,0,.45);
+    transition:transform .06s,box-shadow .06s;
+  }
+  .bigbtn:active{transform:translateY(3px);box-shadow:0 3px 0 #a97c19,0 8px 18px rgba(0,0,0,.4);}
+  .credit{position:absolute;bottom:14px;font-size:11px;color:#6f7d99;}
+  #winStats{color:#dfe7f6;font-size:17px;margin:6px 0 18px;}
+  #winStats b{color:var(--gold2);}
+  .muted{position:fixed;right:14px;bottom:14px;z-index:5;font-size:12px;color:#cdd7ea;
+    background:rgba(13,27,52,.7);border:1px solid #33457a;border-radius:8px;padding:6px 10px;
+    pointer-events:none;}
+</style>
+</head>
+<body>
+<div id="game">
+  <canvas id="cv"></canvas>
+
+  <div id="hud">
+    <div class="badge" id="progress">🇺🇸 Buildings Unlocked <b><span id="cnt">0</span> / <span id="tot">0</span></b></div>
+    <div class="badge" id="subhud">Conservative Staffer · Walk the District</div>
+  </div>
+
+  <div id="prompt"><span class="key">E</span><span id="promptText">Unlock</span></div>
+
+  <div id="dialog">
+    <div class="dh">
+      <div class="seal">★</div>
+      <h2 id="dlgTitle">Building</h2>
+    </div>
+    <div class="quote" id="dlgQuote">...</div>
+    <div class="foot">
+      <span class="tag" id="dlgTag">Talking point logged</span>
+      <button class="btn" id="dlgClose">Continue ▶</button>
+    </div>
+  </div>
+
+  <div class="muted" id="muteNote">🔊 Sound on · press M to mute</div>
+
+  <!-- TITLE -->
+  <div class="overlay" id="titleScreen">
+    <div class="stars"></div>
+    <div class="kicker">A Top-Down Walk Across the District</div>
+    <div class="title">STAFFER<br><span class="accent">AMERICA&nbsp;FIRST</span></div>
+    <div class="flagbar"></div>
+    <p class="lede">
+      You're a conservative Hill staffer with a laminate badge and a mission.
+      Walk the streets of Washington, D.C. and <b>unlock</b> all 27 landmarks &mdash;
+      from the Capitol to the Pentagon &mdash; dropping a talking point at every door.
+    </p>
+    <div class="controls">
+      <div><span class="k">W A S D</span>/<span class="k">↑ ← ↓ →</span> Move</div>
+      <div><span class="k">E</span> Unlock building</div>
+      <div><span class="k">M</span> Mute</div>
+    </div>
+    <button class="bigbtn" id="startBtn">▶ Report for Duty</button>
+    <div class="credit">Satirical political fan project · hand-drawn map of D.C. · single HTML file</div>
+  </div>
+
+  <!-- WIN -->
+  <div class="overlay hidden" id="winScreen">
+    <div class="stars"></div>
+    <div class="kicker">Mission Accomplished</div>
+    <div class="title">THE DISTRICT IS<br><span class="accent">SECURED</span></div>
+    <div class="flagbar"></div>
+    <div id="winStats">You unlocked <b><span id="winCount">27</span></b> landmarks in <b><span id="winTime">0:00</span></b>.</div>
+    <p class="lede">Every door knocked, every talking point delivered. Promises made, promises kept. 🇺🇸</p>
+    <button class="bigbtn" id="restartBtn">↻ Walk It Again</button>
+    <div class="credit">Thanks for playing</div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* =========================================================================
+   STAFFER: America First  —  a top-down "unlock the District" stroll game.
+   Single file, no dependencies. Map is hand-drawn but laid out to match the
+   real geography of Washington, D.C. (Mall on the E–W axis, Capitol at the
+   east end, Lincoln at the west, White House to the north, Tidal Basin /
+   Jefferson to the south, Potomac to the southwest, Pennsylvania Ave on the
+   diagonal).
+   ========================================================================= */
+
+const cv  = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+
+const WORLD = { w: 3000, h: 2000 };
+let   VIEW  = { w: window.innerWidth, h: window.innerHeight };
+const cam   = { x: 0, y: 0 };
+
+const player = { x: 1180, y: 1090, vx:0, vy:0, r: 13, speed: 250, fx: 0, fy: 1, step: 0 };
+const keys = {};
+let state = 'title';            // 'title' | 'play' | 'win'
+let muted = false;
+let nearest = null;             // nearest interactable building
+let startTime = 0, elapsed = 0;
+
+/* ---------------- palette ---------------- */
+const C = {
+  land:   '#e7e0cf',
+  land2:  '#ded6c2',
+  water:  '#9cc6e0',
+  water2: '#8ab8d6',
+  park:   '#bcd49a',
+  park2:  '#aecb88',
+  road:   '#fbfaf5',
+  roadEdge:'#d9d2bf',
+  roadMain:'#ffffff',
+  block:  '#d7cfba',
+  marble: '#f4f1e7',
+  tan:    '#d9caa0',
+  stone:  '#cdc3ad',
+  brick:  '#bd7a5e',
+  white:  '#fafafa',
+  lockTint:'rgba(36,42,58,.42)',
+};
+
+/* =========================================================================
+   BUILDINGS  (x,y are CENTER coordinates in world space)
+   Each gets a conservative / nationalist talking point as requested.
+   ========================================================================= */
+const buildings = [
+  { id:'capitol', name:'United States Capitol', label:'U.S. Capitol', type:'capitol',
+    x:2080, y:1015, w:230, h:120, roof:C.marble,
+    msg:"We the People are taking back our House. America First — now and forever." },
+
+  { id:'senate', name:'Senate Office Buildings', label:'Senate Offices', type:'complex',
+    x:2180, y:835, w:200, h:96, roof:C.tan,
+    msg:"Pass Save America, Thune." },
+
+  { id:'house', name:'House Office Buildings', label:'House Offices', type:'complex',
+    x:2010, y:1185, w:200, h:96, roof:C.tan,
+    msg:"The People's House. Gavel in hand, we drain the swamp." },
+
+  { id:'whitehouse', name:'The White House', label:'The White House', type:'whitehouse',
+    x:1150, y:690, w:160, h:96, roof:C.white,
+    msg:"1600 Pennsylvania Avenue. Promises made, promises kept." },
+
+  { id:'treasury', name:'Department of the Treasury', label:'Treasury', type:'temple',
+    x:1305, y:705, w:120, h:86, roof:C.marble,
+    msg:"Sound money, low taxes. Make the tax cuts permanent and starve the deficit." },
+
+  { id:'va', name:'Department of Veterans Affairs', label:'Veterans Affairs', type:'gov',
+    x:1040, y:545, w:118, h:84, roof:C.stone,
+    msg:"Take care of those who served. No veteran left behind." },
+
+  { id:'supreme', name:'Supreme Court of the United States', label:'Supreme Court', type:'temple',
+    x:2305, y:945, w:128, h:92, roof:C.marble,
+    msg:"Originalism rules. The Constitution as written — not as wished." },
+
+  { id:'loc', name:'Library of Congress', label:'Library of Congress', type:'gov',
+    x:2305, y:1075, w:124, h:90, roof:C.tan, dome:true,
+    msg:"Preserve the Western canon. Teach the Founding and honor the Framers." },
+
+  { id:'commerce', name:'Department of Commerce', label:'Commerce', type:'gov',
+    x:1320, y:875, w:150, h:80, roof:C.stone,
+    msg:"Tariffs bring the factories home. Made in America, again." },
+
+  { id:'irs', name:'Internal Revenue Service', label:'IRS', type:'gov',
+    x:1490, y:858, w:118, h:78, roof:C.stone,
+    msg:"Repeal the army of new agents. Simplify the code, lighten the burden." },
+
+  { id:'doj', name:'Department of Justice', label:'Justice Dept.', type:'gov',
+    x:1645, y:850, w:122, h:80, roof:C.stone,
+    msg:"Equal justice under law. End the two-tiered system. Back the Blue." },
+
+  { id:'archives', name:'National Archives', label:'National Archives', type:'temple',
+    x:1700, y:945, w:120, h:86, roof:C.marble,
+    msg:"The Declaration and the Constitution — our sacred inheritance. Guard them." },
+
+  { id:'fbi', name:'FBI — J. Edgar Hoover Building', label:'FBI', type:'gov',
+    x:1830, y:858, w:130, h:80, roof:'#b7ac95',
+    msg:"Reform the Bureau. Accountability for the weaponization of justice." },
+
+  { id:'epa', name:'Environmental Protection Agency', label:'EPA', type:'gov',
+    x:1965, y:880, w:116, h:78, roof:C.stone,
+    msg:"Unleash American energy. Drill, baby, drill." },
+
+  { id:'usda', name:'Department of Agriculture', label:'Agriculture', type:'gov',
+    x:1320, y:1170, w:150, h:80, roof:C.stone,
+    msg:"The American farmer feeds the world. Protect the family farm." },
+
+  { id:'hhs', name:'Health & Human Services', label:'Health & Human Svcs.', type:'gov',
+    x:1700, y:1190, w:140, h:82, roof:C.stone,
+    msg:"Make America Healthy Again. Secretary Kennedy is taking on Big Pharma, the seed oils, and the chronic-disease epidemic." },
+
+  { id:'sba', name:'Small Business Administration', label:'Small Business Admin.', type:'gov',
+    x:1840, y:1255, w:124, h:80, roof:'#cdb98f',
+    msg:"Small communities of America need a merchant class of small-business property owners with buy-in." },
+
+  { id:'education', name:'Department of Education', label:'Education', type:'gov',
+    x:1985, y:1200, w:122, h:80, roof:C.stone,
+    msg:"Abolish it. Return education to the states, the parents, and the local school board." },
+
+  { id:'labor', name:'Department of Labor', label:'Labor', type:'gov',
+    x:2130, y:1170, w:124, h:80, roof:C.stone,
+    msg:"The dignity of work. American workers first — over cheap foreign labor." },
+
+  { id:'state', name:'Department of State', label:'State Dept.', type:'gov',
+    x:700, y:760, w:150, h:88, roof:C.stone,
+    msg:"Diplomacy that puts America first. No more endless wars." },
+
+  { id:'interior', name:'Department of the Interior', label:'Interior', type:'gov',
+    x:850, y:835, w:130, h:82, roof:C.stone,
+    msg:"Energy dominance on federal land. American independence, American strength." },
+
+  { id:'fed', name:'Federal Reserve', label:'Federal Reserve', type:'temple',
+    x:770, y:915, w:120, h:84, roof:C.marble,
+    msg:"End the easy money. Audit the Fed. Defend the dollar." },
+
+  { id:'monument', name:'Washington Monument', label:'Washington Monument', type:'monument',
+    x:1180, y:1015, w:48, h:48, roof:'#e9e2d2',
+    msg:"First in war, first in peace. Honor the Father of our Country." },
+
+  { id:'lincoln', name:'Lincoln Memorial', label:'Lincoln Memorial', type:'lincoln',
+    x:540, y:990, w:140, h:86, roof:C.marble,
+    msg:"A house divided cannot stand. One nation, indivisible." },
+
+  { id:'jefferson', name:'Jefferson Memorial', label:'Jefferson Memorial', type:'jefferson',
+    x:1015, y:1470, w:120, h:120, roof:C.marble,
+    msg:"Endowed by our Creator with Life, Liberty, and the pursuit of Happiness." },
+
+  { id:'pentagon', name:'The Pentagon', label:'The Pentagon', type:'pentagon',
+    x:385, y:1505, w:200, h:200, roof:'#c9cdbb',
+    msg:"Peace through strength. A lethal, ready military — not a woke one." },
+
+  { id:'cathedral', name:'Washington National Cathedral', label:"Nat'l Cathedral", type:'cathedral',
+    x:395, y:285, w:120, h:150, roof:C.stone,
+    msg:"One nation under God. Faith and family — the bedrock of the Republic." },
+];
+
+document.getElementById('tot').textContent = buildings.length;
+
+/* =========================================================================
+   STATIC MAP GEOMETRY  (water, parks, roads, filler blocks, trees)
+   ========================================================================= */
+
+// Potomac River — diagonal band on the SW separating "Virginia" (Pentagon) from D.C.
+const potomac = [
+  [300,250],[260,650],[320,980],[450,1380],[600,1780],[520,2000],
+  [880,2000],[800,1700],[640,1300],[500,980],[420,640],[500,250]
+];
+// Anacostia — water in the SE corner
+const anacostia = [ [2620,2000],[2760,1680],[3000,1520],[3000,2000] ];
+
+// Tidal Basin (oval)
+const tidal = { x:1000, y:1320, rx:165, ry:135 };
+// Reflecting Pool (between Lincoln & Monument)
+const reflectPool = { x:620, y:1000, w:470, h:34 };
+
+// Parks (green spaces)
+const parks = [
+  {x:560, y:980,  w:1500, h:150},  // National Mall
+  {x:1075,y:910,  w:240,  h:250},  // Monument grounds
+  {x:840, y:1370, w:360,  h:200},  // Tidal Basin / Jefferson park
+  {x:1060,y:735,  w:240,  h:120},  // The Ellipse (south of WH)
+  {x:1980,y:935,  w:280,  h:190},  // Capitol grounds
+  {x:430, y:945,  w:230,  h:120},  // Lincoln grounds
+];
+
+/* simple seeded RNG so the city layout is stable each load */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const rng = mulberry32(20260623);
+
+function inWater(x,y){
+  if (pointInPoly(x,y,potomac) || pointInPoly(x,y,anacostia)) return true;
+  if (((x-tidal.x)**2)/(tidal.rx**2)+((y-tidal.y)**2)/(tidal.ry**2) < 1) return true;
+  return false;
+}
+function nearLandmark(x,y,pad){
+  for(const b of buildings){
+    if (Math.abs(x-b.x) < b.w/2+pad && Math.abs(y-b.y) < b.h/2+pad) return true;
+  }
+  return false;
+}
+function inPark(x,y){
+  for(const p of parks){
+    if (x>p.x && x<p.x+p.w && y>p.y && y<p.y+p.h) return true;
+  }
+  return false;
+}
+
+// Pre-generate filler "city blocks" to give D.C. texture (non-interactive)
+const cityBlocks = [];
+for (let gx=120; gx<WORLD.w-120; gx+=130){
+  for (let gy=120; gy<WORLD.h-120; gy+=120){
+    const jx = gx + (rng()-.5)*36;
+    const jy = gy + (rng()-.5)*30;
+    if (inWater(jx,jy)) continue;
+    if (inPark(jx,jy)) continue;
+    if (nearLandmark(jx,jy,70)) continue;
+    if (rng() < 0.32) continue;                 // leave gaps for streets/lots
+    const w = 58 + rng()*46, h = 46 + rng()*38;
+    const shade = 0.84 + rng()*0.14;
+    cityBlocks.push({x:jx, y:jy, w, h, shade, tall: rng()<0.18});
+  }
+}
+
+// Trees scattered in parks
+const trees = [];
+for (const p of parks){
+  const n = Math.floor((p.w*p.h)/5200);
+  for (let i=0;i<n;i++){
+    const tx = p.x + rng()*p.w, ty = p.y + rng()*p.h;
+    if (((tx-tidal.x)**2)/(tidal.rx**2)+((ty-tidal.y)**2)/(tidal.ry**2) < 1) continue;
+    if (tx>reflectPool.x && tx<reflectPool.x+reflectPool.w && ty>reflectPool.y && ty<reflectPool.y+reflectPool.h) continue;
+    if (nearLandmark(tx,ty,30)) continue;
+    trees.push({x:tx, y:ty, r:6+rng()*4});
+  }
+}
+
+function pointInPoly(x,y,poly){
+  let inside=false;
+  for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+    const xi=poly[i][0],yi=poly[i][1],xj=poly[j][0],yj=poly[j][1];
+    if(((yi>y)!=(yj>y)) && (x < (xj-xi)*(y-yi)/(yj-yi)+xi)) inside=!inside;
+  }
+  return inside;
+}
+
+/* =========================================================================
+   AUDIO (tiny Web Audio chimes — no files)
+   ========================================================================= */
+let actx=null;
+function beep(freq, dur, type, gain){
+  if (muted) return;
+  try{
+    if(!actx) actx=new (window.AudioContext||window.webkitAudioContext)();
+    const o=actx.createOscillator(), g=actx.createGain();
+    o.type=type||'sine'; o.frequency.value=freq;
+    g.gain.value=gain||0.06;
+    o.connect(g); g.connect(actx.destination);
+    const t=actx.currentTime;
+    g.gain.setValueAtTime(g.gain.value,t);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    o.start(t); o.stop(t+dur);
+  }catch(e){}
+}
+function unlockSound(){ beep(523.25,0.12,'triangle',0.07); setTimeout(()=>beep(783.99,0.18,'triangle',0.06),90); }
+function winSound(){ [523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,0.25,'triangle',0.07),i*140)); }
+
+/* =========================================================================
+   INPUT
+   ========================================================================= */
+window.addEventListener('keydown', e=>{
+  const k=e.key.toLowerCase();
+  keys[k]=true;
+  if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
+
+  if(state==='title' && (k==='enter'||k===' ')) startGame();
+  else if(state==='win' && (k==='enter'||k===' ')) startGame();
+  else if(state==='play'){
+    if(k==='e'||k==='enter') interact();
+    if(k===' ') { if(dialogShown) hideDialog(); }
+    if(k==='escape') hideDialog();
+  }
+  if(k==='m') toggleMute();
+});
+window.addEventListener('keyup', e=>{ keys[e.key.toLowerCase()]=false; });
+
+document.getElementById('startBtn').addEventListener('click', startGame);
+document.getElementById('restartBtn').addEventListener('click', startGame);
+document.getElementById('dlgClose').addEventListener('click', hideDialog);
+
+// click a nearby building to interact
+cv.addEventListener('click', e=>{
+  if(state!=='play') return;
+  const wx = e.clientX + cam.x, wy = e.clientY + cam.y;
+  for(const b of buildings){
+    const rad = Math.max(b.w,b.h)/2 + 24;
+    if(Math.hypot(wx-b.x, wy-b.y) < rad){
+      const d = Math.hypot(player.x-b.x, player.y-b.y);
+      if(d < interactRadius(b)) { interactWith(b); }
+      else { flashTooFar(); }
+      return;
+    }
+  }
+});
+
+function toggleMute(){
+  muted=!muted;
+  document.getElementById('muteNote').textContent = muted ? '🔇 Sound off · press M to unmute' : '🔊 Sound on · press M to mute';
+}
+
+/* =========================================================================
+   GAME FLOW
+   ========================================================================= */
+function startGame(){
+  buildings.forEach(b=>b.unlocked=false);
+  player.x=1180; player.y=1090; player.fx=0; player.fy=1;
+  updateCount();
+  document.getElementById('titleScreen').classList.add('hidden');
+  document.getElementById('winScreen').classList.add('hidden');
+  hideDialog();
+  state='play';
+  startTime=performance.now();
+  if(actx && actx.state==='suspended') actx.resume();
+}
+
+function interactRadius(b){ return Math.max(b.w,b.h)/2 + 62; }
+
+function interact(){ if(nearest) interactWith(nearest); }
+
+let dialogShown=false;
+function interactWith(b){
+  if(!b.unlocked){
+    b.unlocked=true;
+    updateCount();
+    unlockSound();
+    if(buildings.every(x=>x.unlocked)){
+      showDialog(b, true);
+      setTimeout(winGame, 650);
+      return;
+    }
+  }
+  showDialog(b, false);
+}
+
+function showDialog(b, finalOne){
+  document.getElementById('dlgTitle').textContent = b.name;
+  document.getElementById('dlgQuote').textContent = b.msg;
+  document.getElementById('dlgTag').textContent = finalOne ? 'Final building secured 🇺🇸' : 'Talking point logged';
+  document.getElementById('dialog').classList.add('show');
+  dialogShown=true;
+}
+function hideDialog(){
+  document.getElementById('dialog').classList.remove('show');
+  dialogShown=false;
+}
+
+let tooFarT=0;
+function flashTooFar(){
+  tooFarT = performance.now();
+}
+
+function updateCount(){
+  const n = buildings.filter(b=>b.unlocked).length;
+  document.getElementById('cnt').textContent = n;
+}
+
+function winGame(){
+  state='win';
+  elapsed = (performance.now()-startTime)/1000;
+  document.getElementById('winCount').textContent = buildings.length;
+  document.getElementById('winTime').textContent = fmtTime(elapsed);
+  document.getElementById('winScreen').classList.remove('hidden');
+  winSound();
+}
+function fmtTime(s){const m=Math.floor(s/60),ss=Math.floor(s%60);return m+':'+String(ss).padStart(2,'0');}
+
+/* =========================================================================
+   UPDATE
+   ========================================================================= */
+function update(dt){
+  if(state!=='play') return;
+
+  let dx=0, dy=0;
+  if(keys['w']||keys['arrowup'])    dy-=1;
+  if(keys['s']||keys['arrowdown'])  dy+=1;
+  if(keys['a']||keys['arrowleft'])  dx-=1;
+  if(keys['d']||keys['arrowright']) dx+=1;
+
+  if(dx||dy){
+    const len=Math.hypot(dx,dy);
+    dx/=len; dy/=len;
+    player.fx=dx; player.fy=dy;
+    player.x += dx*player.speed*dt;
+    player.y += dy*player.speed*dt;
+    player.step += player.speed*dt*0.05;
+  }
+  // clamp to world
+  player.x = Math.max(player.r, Math.min(WORLD.w-player.r, player.x));
+  player.y = Math.max(player.r, Math.min(WORLD.h-player.r, player.y));
+
+  // camera follows, clamped
+  const tx = player.x - VIEW.w/2;
+  const ty = player.y - VIEW.h/2;
+  cam.x += (tx-cam.x)*Math.min(1, dt*8);
+  cam.y += (ty-cam.y)*Math.min(1, dt*8);
+  cam.x = Math.max(0, Math.min(WORLD.w-VIEW.w, cam.x));
+  cam.y = Math.max(0, Math.min(WORLD.h-VIEW.h, cam.y));
+  if(WORLD.w<VIEW.w) cam.x=(WORLD.w-VIEW.w)/2;
+  if(WORLD.h<VIEW.h) cam.y=(WORLD.h-VIEW.h)/2;
+
+  // nearest interactable
+  nearest=null; let best=1e9;
+  for(const b of buildings){
+    const d=Math.hypot(player.x-b.x, player.y-b.y);
+    if(d<interactRadius(b) && d<best){best=d; nearest=b;}
+  }
+  // prompt
+  const prompt=document.getElementById('prompt');
+  if(nearest && !dialogShown){
+    document.getElementById('promptText').textContent =
+      (nearest.unlocked?'Re-read ':'Unlock ') + nearest.label;
+    prompt.style.opacity='1';
+  } else {
+    prompt.style.opacity='0';
+  }
+  // auto-close dialog when you wander off
+  if(dialogShown && (!nearest)) hideDialog();
+}
+
+/* =========================================================================
+   RENDER
+   ========================================================================= */
+function poly(pts){
+  ctx.beginPath();
+  ctx.moveTo(pts[0][0],pts[0][1]);
+  for(let i=1;i<pts.length;i++) ctx.lineTo(pts[i][0],pts[i][1]);
+  ctx.closePath();
+}
+function rr(x,y,w,h,r){
+  r=Math.min(r,w/2,h/2);
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+function columns(x1,y,x2,n,r,col){
+  ctx.fillStyle=col;
+  for(let i=0;i<n;i++){
+    const t=n===1?0.5:i/(n-1);
+    ctx.beginPath();
+    ctx.arc(x1+(x2-x1)*t, y, r, 0, Math.PI*2);
+    ctx.fill();
+  }
+}
+
+function render(){
+  // ---- background land ----
+  ctx.save();
+  ctx.translate(-Math.round(cam.x), -Math.round(cam.y));
+
+  // land base
+  ctx.fillStyle=C.land;
+  ctx.fillRect(0,0,WORLD.w,WORLD.h);
+  // subtle land texture bands
+  ctx.fillStyle=C.land2;
+  for(let y=0;y<WORLD.h;y+=240) ctx.fillRect(0,y,WORLD.w,120);
+
+  // ---- water ----
+  ctx.fillStyle=C.water;
+  poly(potomac); ctx.fill();
+  poly(anacostia); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(tidal.x,tidal.y,tidal.rx,tidal.ry,0,0,Math.PI*2); ctx.fill();
+  // water shading edge
+  ctx.strokeStyle=C.water2; ctx.lineWidth=10;
+  poly(potomac); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(tidal.x,tidal.y,tidal.rx,tidal.ry,0,0,Math.PI*2); ctx.stroke();
+
+  // "Virginia" label hint near Pentagon side
+  // ---- parks ----
+  for(const p of parks){
+    ctx.fillStyle=C.park;
+    ctx.fillRect(p.x,p.y,p.w,p.h);
+    ctx.fillStyle=C.park2;
+    ctx.fillRect(p.x,p.y,p.w,8);
+  }
+  // reflecting pool
+  ctx.fillStyle=C.water;
+  ctx.fillRect(reflectPool.x,reflectPool.y,reflectPool.w,reflectPool.h);
+  ctx.strokeStyle=C.water2; ctx.lineWidth=3;
+  ctx.strokeRect(reflectPool.x,reflectPool.y,reflectPool.w,reflectPool.h);
+
+  // ---- roads ----
+  drawRoads();
+
+  // ---- filler city blocks ----
+  for(const b of cityBlocks){
+    const g=Math.floor(215*b.shade);
+    ctx.fillStyle=`rgb(${g-6},${g-12},${g-26})`;
+    ctx.fillRect(b.x-b.w/2+3, b.y-b.h/2+3, b.w, b.h);     // shadow
+    ctx.fillStyle=`rgb(${g},${g-6},${g-20})`;
+    ctx.fillRect(b.x-b.w/2, b.y-b.h/2, b.w, b.h);
+    if(b.tall){ ctx.fillStyle='rgba(0,0,0,.07)'; ctx.fillRect(b.x-b.w/2,b.y-b.h/2,b.w,b.h/3); }
+  }
+
+  // ---- trees ----
+  for(const t of trees){
+    ctx.fillStyle='rgba(0,0,0,.12)';
+    ctx.beginPath(); ctx.ellipse(t.x+2,t.y+3,t.r,t.r*0.7,0,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#6f9c52';
+    ctx.beginPath(); ctx.arc(t.x,t.y,t.r,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#7fae5e';
+    ctx.beginPath(); ctx.arc(t.x-t.r*0.3,t.y-t.r*0.3,t.r*0.55,0,Math.PI*2); ctx.fill();
+  }
+
+  // ---- buildings (sorted so southern ones overlap northern) ----
+  const sorted=[...buildings].sort((a,b)=>a.y-b.y);
+  for(const b of sorted) drawBuilding(b);
+
+  // ---- nearest highlight ring ----
+  if(nearest && state==='play'){
+    const pulse=0.5+0.5*Math.sin(performance.now()/220);
+    ctx.strokeStyle=`rgba(224,169,46,${0.55+0.4*pulse})`;
+    ctx.lineWidth=3;
+    ctx.setLineDash([10,8]);
+    ctx.lineDashOffset=-performance.now()/40;
+    ctx.beginPath();
+    ctx.arc(nearest.x, nearest.y, Math.max(nearest.w,nearest.h)/2+30, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // ---- player ----
+  drawPlayer();
+
+  ctx.restore();
+
+  // ---- minimap (screen space) ----
+  drawMinimap();
+
+  // ---- "too far" flash ----
+  if(performance.now()-tooFarT < 900){
+    const a=1-(performance.now()-tooFarT)/900;
+    ctx.fillStyle=`rgba(178,34,52,${a})`;
+    ctx.font='700 16px sans-serif';
+    ctx.textAlign='center';
+    ctx.fillText('Walk closer to unlock', VIEW.w/2, VIEW.h-70);
+    ctx.textAlign='left';
+  }
+}
+
+function drawRoads(){
+  // faint street grid
+  ctx.strokeStyle=C.roadEdge; ctx.lineWidth=14;
+  ctx.lineCap='round';
+  for(let x=180;x<WORLD.w;x+=200){ ctx.beginPath(); ctx.moveTo(x,40); ctx.lineTo(x,WORLD.h-40); ctx.stroke(); }
+  for(let y=160;y<WORLD.h;y+=190){ ctx.beginPath(); ctx.moveTo(40,y); ctx.lineTo(WORLD.w-40,y); ctx.stroke(); }
+  ctx.strokeStyle=C.road; ctx.lineWidth=10;
+  for(let x=180;x<WORLD.w;x+=200){ ctx.beginPath(); ctx.moveTo(x,40); ctx.lineTo(x,WORLD.h-40); ctx.stroke(); }
+  for(let y=160;y<WORLD.h;y+=190){ ctx.beginPath(); ctx.moveTo(40,y); ctx.lineTo(WORLD.w-40,y); ctx.stroke(); }
+
+  // Constitution & Independence Aves (bounding the Mall)
+  ctx.strokeStyle=C.roadMain; ctx.lineWidth=16;
+  ctx.beginPath(); ctx.moveTo(360,968); ctx.lineTo(2360,968); ctx.stroke();   // Constitution
+  ctx.beginPath(); ctx.moveTo(360,1140); ctx.lineTo(2360,1140); ctx.stroke(); // Independence
+
+  // Pennsylvania Avenue — the diagonal from White House to Capitol
+  ctx.strokeStyle=C.roadEdge; ctx.lineWidth=24;
+  ctx.beginPath(); ctx.moveTo(1170,720); ctx.lineTo(2040,1000); ctx.stroke();
+  ctx.strokeStyle=C.roadMain; ctx.lineWidth=18;
+  ctx.beginPath(); ctx.moveTo(1170,720); ctx.lineTo(2040,1000); ctx.stroke();
+  // center dashes on Penn Ave
+  ctx.strokeStyle='#e8c34d'; ctx.lineWidth=2.5; ctx.setLineDash([16,14]);
+  ctx.beginPath(); ctx.moveTo(1170,720); ctx.lineTo(2040,1000); ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function shadow(b){
+  ctx.fillStyle='rgba(0,0,0,.16)';
+  rr(b.x-b.w/2+6, b.y-b.h/2+7, b.w, b.h, 7); ctx.fill();
+}
+function body(b,color){
+  ctx.fillStyle=color||b.roof;
+  rr(b.x-b.w/2, b.y-b.h/2, b.w, b.h, 7); ctx.fill();
+  ctx.strokeStyle='rgba(60,55,40,.35)'; ctx.lineWidth=1.5;
+  rr(b.x-b.w/2, b.y-b.h/2, b.w, b.h, 7); ctx.stroke();
+}
+
+function drawBuilding(b){
+  const x=b.x, y=b.y, w=b.w, h=b.h;
+  shadow(b);
+
+  switch(b.type){
+    case 'capitol': {
+      // two wings + central rotunda
+      body(b, b.roof);
+      // wings detail
+      ctx.fillStyle='rgba(0,0,0,.05)';
+      ctx.fillRect(x-w/2+10, y-h/2+10, w*0.30, h-20);
+      ctx.fillRect(x+w/2-10-w*0.30, y-h/2+10, w*0.30, h-20);
+      // dome base
+      ctx.fillStyle='#ece4d2';
+      ctx.beginPath(); ctx.arc(x, y-2, 30, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle='#f6f2e7';
+      ctx.beginPath(); ctx.arc(x, y-6, 22, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle='#d9cfb8';
+      ctx.beginPath(); ctx.arc(x, y-6, 22, Math.PI*0.15, Math.PI*0.85); ctx.fill();
+      // lantern + statue of freedom dot
+      ctx.fillStyle='#c9bd9c'; ctx.beginPath(); ctx.arc(x,y-26,5,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#9c8e6a'; ctx.beginPath(); ctx.arc(x,y-33,2.5,0,Math.PI*2); ctx.fill();
+      // east front steps
+      ctx.strokeStyle='rgba(0,0,0,.12)'; ctx.lineWidth=2;
+      for(let i=0;i<3;i++){ctx.beginPath();ctx.moveTo(x-26,y+h/2-4-i*4);ctx.lineTo(x+26,y+h/2-4-i*4);ctx.stroke();}
+      break;
+    }
+    case 'whitehouse': {
+      body(b, b.roof);
+      // portico (rounded south porch)
+      ctx.fillStyle='#eee';
+      ctx.beginPath(); ctx.arc(x, y+h/2, 22, Math.PI, 0); ctx.fill();
+      columns(x-20,y+h/2-2,x+20,5,3,'#cfcfcf');
+      // green lawn hint
+      ctx.fillStyle='rgba(120,160,90,.4)';
+      ctx.fillRect(x-w/2, y+h/2, w, 6);
+      // roof detail
+      ctx.fillStyle='rgba(0,0,0,.05)'; ctx.fillRect(x-w/2+8,y-h/2+8,w-16,10);
+      break;
+    }
+    case 'temple': {
+      body(b, b.roof);
+      // pediment (triangle, south)
+      ctx.fillStyle='#e9e3d4';
+      ctx.beginPath(); ctx.moveTo(x-w*0.32,y+h/2-2); ctx.lineTo(x+w*0.32,y+h/2-2); ctx.lineTo(x,y+h/2-14); ctx.closePath(); ctx.fill();
+      // colonnade
+      columns(x-w*0.34,y+h/2-4,x+w*0.34,7,3,'#d7cfb8');
+      break;
+    }
+    case 'complex': {
+      // three connected blocks
+      const bw=w/3-4;
+      for(let i=0;i<3;i++){
+        ctx.fillStyle=b.roof;
+        rr(x-w/2+i*(bw+6), y-h/2, bw, h, 5); ctx.fill();
+        ctx.strokeStyle='rgba(60,55,40,.35)'; ctx.lineWidth=1.4;
+        rr(x-w/2+i*(bw+6), y-h/2, bw, h, 5); ctx.stroke();
+        ctx.fillStyle='rgba(0,0,0,.06)';
+        rr(x-w/2+i*(bw+6)+6, y-h/2+6, bw-12, h*0.4, 3); ctx.fill();
+      }
+      break;
+    }
+    case 'gov': {
+      body(b, b.roof);
+      // courtyard for big ones
+      if(w>130){ ctx.fillStyle='rgba(0,0,0,.06)'; rr(x-w*0.22,y-h*0.18,w*0.44,h*0.36,4); ctx.fill(); }
+      // rooftop HVAC
+      ctx.fillStyle='rgba(0,0,0,.12)';
+      ctx.fillRect(x-w/2+12, y-h/2+10, 14, 10);
+      ctx.fillRect(x+w/2-28, y-h/2+12, 12, 9);
+      ctx.fillStyle='rgba(255,255,255,.18)';
+      ctx.fillRect(x-w/2+8, y-h/2+8, w-16, 5);
+      if(b.dome){
+        ctx.fillStyle='#e9e2cf'; ctx.beginPath(); ctx.arc(x,y,16,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#cdbf99'; ctx.beginPath(); ctx.arc(x,y,16,Math.PI*0.15,Math.PI*0.85); ctx.fill();
+      }
+      break;
+    }
+    case 'monument': {
+      // long shadow to suggest height
+      ctx.fillStyle='rgba(0,0,0,.16)';
+      ctx.beginPath(); ctx.moveTo(x+8,y+10); ctx.lineTo(x+70,y+44); ctx.lineTo(x+86,y+38); ctx.lineTo(x+20,y-2); ctx.closePath(); ctx.fill();
+      // obelisk base
+      ctx.fillStyle=b.roof;
+      ctx.fillRect(x-14,y-14,28,28);
+      ctx.fillStyle='#d9d0bd'; ctx.fillRect(x+2,y-14,12,28);
+      // pyramid cap
+      ctx.fillStyle='#f3ecdb';
+      ctx.beginPath(); ctx.moveTo(x-14,y-14); ctx.lineTo(x+14,y-14); ctx.lineTo(x,y-26); ctx.closePath(); ctx.fill();
+      // ring of small flags around base
+      for(let i=0;i<10;i++){
+        const a=i/10*Math.PI*2, fx=x+Math.cos(a)*30, fy=y+Math.sin(a)*22;
+        ctx.strokeStyle='#aaa'; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(fx,fy); ctx.lineTo(fx,fy-7); ctx.stroke();
+        ctx.fillStyle=(i%2?'#b22234':'#2b4a8b'); ctx.fillRect(fx,fy-7,4,3);
+      }
+      break;
+    }
+    case 'lincoln': {
+      body(b, b.roof);
+      // colonnade all around
+      columns(x-w/2+10,y-h/2+8,x+w/2-10,8,3,'#ded7c2');
+      columns(x-w/2+10,y+h/2-8,x+w/2-10,8,3,'#ded7c2');
+      // steps
+      ctx.strokeStyle='rgba(0,0,0,.12)'; ctx.lineWidth=2;
+      for(let i=0;i<3;i++){ctx.beginPath();ctx.moveTo(x-w/2+14,y+h/2-2-i*4);ctx.lineTo(x+w/2-14,y+h/2-2-i*4);ctx.stroke();}
+      break;
+    }
+    case 'jefferson': {
+      // rotunda
+      ctx.fillStyle=b.roof;
+      ctx.beginPath(); ctx.arc(x,y,w/2-6,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle='rgba(60,55,40,.35)'; ctx.lineWidth=1.5; ctx.stroke();
+      // dome
+      ctx.fillStyle='#ece5d3'; ctx.beginPath(); ctx.arc(x,y,w/2-22,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#d6ccb3'; ctx.beginPath(); ctx.arc(x,y,w/2-22,Math.PI*0.15,Math.PI*0.85); ctx.fill();
+      // ring of columns
+      const n=14;
+      ctx.fillStyle='#ded7c2';
+      for(let i=0;i<n;i++){const a=i/n*Math.PI*2;ctx.beginPath();ctx.arc(x+Math.cos(a)*(w/2-10),y+Math.sin(a)*(w/2-10),3,0,Math.PI*2);ctx.fill();}
+      break;
+    }
+    case 'pentagon': {
+      const R=w/2-6;
+      ctx.fillStyle=b.roof;
+      ctx.beginPath();
+      for(let i=0;i<5;i++){const a=-Math.PI/2+i/5*Math.PI*2;const px=x+Math.cos(a)*R,py=y+Math.sin(a)*R;i?ctx.lineTo(px,py):ctx.moveTo(px,py);}
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle='rgba(60,55,40,.4)'; ctx.lineWidth=1.6; ctx.stroke();
+      // inner rings
+      for(const rr2 of [0.74,0.5]){
+        ctx.strokeStyle='rgba(0,0,0,.18)'; ctx.lineWidth=6;
+        ctx.beginPath();
+        for(let i=0;i<5;i++){const a=-Math.PI/2+i/5*Math.PI*2;const px=x+Math.cos(a)*R*rr2,py=y+Math.sin(a)*R*rr2;i?ctx.lineTo(px,py):ctx.moveTo(px,py);}
+        ctx.closePath(); ctx.stroke();
+      }
+      // courtyard
+      ctx.fillStyle='rgba(120,160,90,.5)';
+      ctx.beginPath(); ctx.arc(x,y,R*0.18,0,Math.PI*2); ctx.fill();
+      break;
+    }
+    case 'cathedral': {
+      // cross-shaped footprint (nave + transept)
+      ctx.fillStyle=b.roof;
+      ctx.fillRect(x-w*0.18, y-h/2, w*0.36, h);          // nave (N-S)
+      ctx.fillRect(x-w/2, y-h*0.12, w, h*0.24);          // transept (E-W)
+      ctx.strokeStyle='rgba(60,55,40,.35)'; ctx.lineWidth=1.4;
+      ctx.strokeRect(x-w*0.18, y-h/2, w*0.36, h);
+      // twin spires at south end
+      ctx.fillStyle='#bdb39a';
+      ctx.beginPath(); ctx.moveTo(x-w*0.14,y+h/2); ctx.lineTo(x-w*0.04,y+h/2); ctx.lineTo(x-w*0.09,y+h/2-18); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(x+w*0.04,y+h/2); ctx.lineTo(x+w*0.14,y+h/2); ctx.lineTo(x+w*0.09,y+h/2-18); ctx.closePath(); ctx.fill();
+      // central tower
+      ctx.fillStyle='#cfc6ad'; ctx.fillRect(x-10,y-10,20,20);
+      break;
+    }
+    default: body(b, b.roof);
+  }
+
+  // ---- lock / unlock state badge ----
+  const topX=b.x, topY=b.y-b.h/2-16;
+  if(b.unlocked){
+    // small waving flag
+    ctx.strokeStyle='#7a6a45'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(topX, topY+12); ctx.lineTo(topX, topY-6); ctx.stroke();
+    ctx.fillStyle='#b22234'; ctx.fillRect(topX, topY-6, 16, 10);
+    ctx.fillStyle='#fff'; ctx.fillRect(topX, topY-2.5, 16, 2);
+    ctx.fillStyle='#fff'; ctx.fillRect(topX, topY-6, 7, 4);
+  } else {
+    // padlock
+    ctx.fillStyle='rgba(13,27,52,.85)';
+    rr(topX-8, topY-2, 16, 13, 3); ctx.fill();
+    ctx.strokeStyle='rgba(13,27,52,.85)'; ctx.lineWidth=2.5;
+    ctx.beginPath(); ctx.arc(topX, topY-2, 5, Math.PI, 0); ctx.stroke();
+    ctx.fillStyle='#e0a92e';
+    ctx.beginPath(); ctx.arc(topX, topY+5, 2, 0, Math.PI*2); ctx.fill();
+  }
+
+  // ---- label ----
+  drawLabel(b.label, b.x, b.y+b.h/2+16, b.unlocked);
+
+  // ---- locked tint overlay on footprint ----
+  if(!b.unlocked){
+    ctx.save();
+    ctx.globalAlpha=0.30;
+    ctx.fillStyle='#2a3146';
+    if(b.type==='pentagon'){
+      const R=w/2-6; ctx.beginPath();
+      for(let i=0;i<5;i++){const a=-Math.PI/2+i/5*Math.PI*2;const px=x+Math.cos(a)*R,py=y+Math.sin(a)*R;i?ctx.lineTo(px,py):ctx.moveTo(px,py);}
+      ctx.closePath(); ctx.fill();
+    } else if(b.type==='jefferson'){
+      ctx.beginPath(); ctx.arc(x,y,w/2-6,0,Math.PI*2); ctx.fill();
+    } else {
+      rr(x-w/2,y-h/2,w,h,7); ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+
+function drawLabel(text, cx, cy, unlocked){
+  ctx.font = (unlocked?'700 ':'600 ')+'12px -apple-system,Segoe UI,Roboto,sans-serif';
+  const tw=ctx.measureText(text).width;
+  ctx.fillStyle = unlocked ? 'rgba(224,169,46,.92)' : 'rgba(20,28,48,.72)';
+  rr(cx-tw/2-7, cy-10, tw+14, 18, 9); ctx.fill();
+  ctx.fillStyle = unlocked ? '#1a1206' : '#f3efe4';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(text, cx, cy);
+  ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+}
+
+function drawPlayer(){
+  const p=player;
+  const bob=Math.sin(p.step)*1.5;
+  // shadow
+  ctx.fillStyle='rgba(0,0,0,.22)';
+  ctx.beginPath(); ctx.ellipse(p.x, p.y+10, 11, 6, 0, 0, Math.PI*2); ctx.fill();
+  // shoulders / suit (navy)
+  ctx.fillStyle='#16264a';
+  ctx.beginPath(); ctx.arc(p.x, p.y+bob, 12, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle='#0c1730'; ctx.lineWidth=2; ctx.stroke();
+  // lapels (white shirt) toward facing dir
+  const fa=Math.atan2(p.fy,p.fx);
+  ctx.fillStyle='#f4f4f4';
+  ctx.beginPath(); ctx.arc(p.x+Math.cos(fa)*3, p.y+bob+Math.sin(fa)*3, 5, 0, Math.PI*2); ctx.fill();
+  // red tie pointing forward
+  ctx.fillStyle='#c0182f';
+  ctx.beginPath();
+  ctx.moveTo(p.x+Math.cos(fa)*2, p.y+bob+Math.sin(fa)*2);
+  ctx.lineTo(p.x+Math.cos(fa)*10-Math.sin(fa)*2.5, p.y+bob+Math.sin(fa)*10+Math.cos(fa)*2.5);
+  ctx.lineTo(p.x+Math.cos(fa)*10+Math.sin(fa)*2.5, p.y+bob+Math.sin(fa)*10-Math.cos(fa)*2.5);
+  ctx.closePath(); ctx.fill();
+  // head
+  ctx.fillStyle='#e9b893';
+  ctx.beginPath(); ctx.arc(p.x+Math.cos(fa)*2, p.y+bob+Math.sin(fa)*2, 4.2, 0, Math.PI*2); ctx.fill();
+  // hair
+  ctx.fillStyle='#6b4a2b';
+  ctx.beginPath(); ctx.arc(p.x-Math.cos(fa)*1.5, p.y+bob-Math.sin(fa)*1.5, 3.4, 0, Math.PI*2); ctx.fill();
+  // badge glint
+  ctx.fillStyle='#e0a92e';
+  ctx.beginPath(); ctx.arc(p.x-Math.sin(fa)*7, p.y+bob+Math.cos(fa)*7, 1.7, 0, Math.PI*2); ctx.fill();
+}
+
+/* ---------------- minimap ---------------- */
+function drawMinimap(){
+  const mw=190, mh=mw*WORLD.h/WORLD.w; // keep aspect
+  const mx=VIEW.w-mw-14, my=14;
+  const sx=mw/WORLD.w, sy=mh/WORLD.h;
+  // panel
+  ctx.fillStyle='rgba(13,27,52,.82)';
+  rr(mx-6,my-6,mw+12,mh+12,10); ctx.fill();
+  ctx.strokeStyle='#e0a92e'; ctx.lineWidth=1.5;
+  rr(mx-6,my-6,mw+12,mh+12,10); ctx.stroke();
+  // land
+  ctx.save();
+  rr(mx,my,mw,mh,5); ctx.clip();
+  ctx.fillStyle='#cfc8b4'; ctx.fillRect(mx,my,mw,mh);
+  // water
+  ctx.fillStyle='#9cc6e0';
+  ctx.beginPath();
+  potomac.forEach((p,i)=>{const X=mx+p[0]*sx,Y=my+p[1]*sy;i?ctx.lineTo(X,Y):ctx.moveTo(X,Y);}); ctx.closePath(); ctx.fill();
+  ctx.beginPath();
+  anacostia.forEach((p,i)=>{const X=mx+p[0]*sx,Y=my+p[1]*sy;i?ctx.lineTo(X,Y):ctx.moveTo(X,Y);}); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(mx+tidal.x*sx,my+tidal.y*sy,tidal.rx*sx,tidal.ry*sy,0,0,Math.PI*2); ctx.fill();
+  // mall
+  ctx.fillStyle='#b8cf93';
+  const mall=parks[0]; ctx.fillRect(mx+mall.x*sx,my+mall.y*sy,mall.w*sx,mall.h*sy);
+  // buildings
+  for(const b of buildings){
+    ctx.fillStyle=b.unlocked?'#e0a92e':'#6c7280';
+    ctx.beginPath(); ctx.arc(mx+b.x*sx, my+b.y*sy, b.unlocked?2.8:2.2, 0, Math.PI*2); ctx.fill();
+  }
+  // viewport rect
+  ctx.strokeStyle='rgba(255,255,255,.8)'; ctx.lineWidth=1;
+  ctx.strokeRect(mx+cam.x*sx, my+cam.y*sy, VIEW.w*sx, VIEW.h*sy);
+  // player
+  ctx.fillStyle='#c0182f';
+  ctx.beginPath(); ctx.arc(mx+player.x*sx, my+player.y*sy, 3, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle='#fff'; ctx.lineWidth=1; ctx.stroke();
+  ctx.restore();
+}
+
+/* =========================================================================
+   LOOP & RESIZE
+   ========================================================================= */
+function resize(){
+  VIEW.w=window.innerWidth; VIEW.h=window.innerHeight;
+  cv.width=VIEW.w*devicePixelRatio;
+  cv.height=VIEW.h*devicePixelRatio;
+  cv.style.width=VIEW.w+'px'; cv.style.height=VIEW.h+'px';
+  ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+let last=performance.now();
+function loop(now){
+  const dt=Math.min(0.05,(now-last)/1000); last=now;
+  update(dt);
+  // clear in screen space then render world
+  ctx.clearRect(0,0,VIEW.w,VIEW.h);
+  // sky/water backdrop beyond world edges
+  ctx.fillStyle='#9cc6e0'; ctx.fillRect(0,0,VIEW.w,VIEW.h);
+  render();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
